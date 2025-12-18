@@ -1,0 +1,12 @@
+[package]
+name = "audio_converter"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+egui = "0.33.0"
+eframe = { version = "0.33.0", features = ["default"]}
+egui_extras = { version = "0.33.0", features = ["default", "image"] }
+
+env_logger = { version = "0.11.8", features = ["auto-color", "humantime"] }
+serde = { version = "1.0.219", features = ["derive"] }
