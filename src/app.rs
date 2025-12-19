@@ -73,12 +73,24 @@ impl AudioConverterApp {
 
 impl eframe::App for AudioConverterApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        egui::TopBottomPanel::top("header").show(ctx, |ui| {
+            ui.heading("Batch Audio File Converter");
+        });
+
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Files");
 
             egui::ScrollArea::vertical().show(ui, |ui| {
                 self.file_table(ui);
-            })
+            });
+        });
+        egui::SidePanel::right("output_settings").show(ctx, |ui| {
+            ui.heading("Settings");
+
+            ui.label("Format Settings");
+
+            ui.separator();
+            ui.label("other settings idk");
         });
     }
 }
