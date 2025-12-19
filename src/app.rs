@@ -1,7 +1,9 @@
-#[derive(serde::Deserialize, serde::Serialize)]
+use crate::models::AudioFile;
+
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct AudioConverterApp {
-    files: Vec<String>,
+    files: Vec<AudioFile>,
 }
 
 impl Default for AudioConverterApp {
@@ -13,6 +15,54 @@ impl Default for AudioConverterApp {
 impl AudioConverterApp {
     pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
         Default::default()
+    }
+
+    fn preview_dropped_files(&mut self, ctx: &egui::Context) {
+        use egui::{Align2, Color32, Id, LayerId, Order, TextStyle};
+        use std::fmt::Write as _;
+
+        if !ctx.input(|i| i.raw.hovered_files.is_empty()) {
+            let text = ctx.input(|i| {
+                let mut text = "Adding files to queue:\n".to_owned();
+                for file in &i.raw.hovered_files {
+                    if let Some(path) = &file.path {
+                        write!(text, "\n{}", path.display()).ok();
+                    } else if !file.mime.is_empty() {
+                        write!(text, "\n{}", file.mime).ok();
+                    } else {
+                        text += "\n???";
+                    }
+                }
+                text
+            });
+
+            let painter =
+                ctx.layer_painter(LayerId::new(Order::Foreground, Id::new("file_drop_target")));
+
+            let content_rect = ctx.content_rect();
+            painter.rect_filled(content_rect, 0.0, Color32::from_black_alpha(192));
+            painter.text(
+                content_rect.center(),
+                Align2::CENTER_CENTER,
+                text,
+                TextStyle::Heading.resolve(&ctx.style()),
+                Color32::WHITE,
+            );
+        }
+
+        ctx.input(|i| {
+            // if !i.raw.hovered_files.is_empty() {
+            //     println!("hovering a file: {}", i.raw.hovered_files.len());
+            // }
+
+            if !i.raw.dropped_files.is_empty() {
+                // println!("dropped files");
+                for file in &i.raw.dropped_files {
+                    self.files
+                        .push(AudioFile::new_from_dropped_file(file.clone()));
+                }
+            }
+        });
     }
 
     fn file_table(&mut self, ui: &mut egui::Ui) {
@@ -54,16 +104,16 @@ impl AudioConverterApp {
                 });
             })
             .body(|mut body| {
-                for _ in 0..10 {
+                for file in &self.files {
                     body.row(text_height, |mut row| {
                         row.col(|ui| {
-                            ui.label("Artist");
+                            ui.label(file.artist.as_deref().unwrap_or("No artist"));
                         });
                         row.col(|ui| {
-                            ui.label("Song title");
+                            ui.label(file.title.as_deref().unwrap_or("Untitled"));
                         });
                         row.col(|ui| {
-                            ui.label("/path/to/file");
+                            ui.label(file.path.to_string_lossy());
                         });
                     })
                 }
@@ -80,10 +130,13 @@ impl eframe::App for AudioConverterApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Files");
 
+            if ui.button("Open file").clicked() {}
+
             egui::ScrollArea::vertical().show(ui, |ui| {
                 self.file_table(ui);
             });
         });
+
         egui::SidePanel::right("output_settings").show(ctx, |ui| {
             ui.heading("Settings");
 
@@ -92,5 +145,7 @@ impl eframe::App for AudioConverterApp {
             ui.separator();
             ui.label("other settings idk");
         });
+
+        self.preview_dropped_files(ctx);
     }
 }
