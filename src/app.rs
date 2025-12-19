@@ -18,7 +18,9 @@ impl AudioConverterApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         cc.egui_ctx.add_font(FontInsert::new(
             "Noto-Sans-CJK_SC",
-            egui::FontData::from_static(include_bytes!("../assets/fonts/NotoSansCJKsc-Regular.otf")),
+            egui::FontData::from_static(include_bytes!(
+                "../assets/fonts/NotoSansCJKsc-Regular.otf"
+            )),
             vec![InsertFontFamily {
                 family: egui::FontFamily::Proportional,
                 priority: egui::epaint::text::FontPriority::Lowest,
@@ -26,7 +28,9 @@ impl AudioConverterApp {
         ));
         cc.egui_ctx.add_font(FontInsert::new(
             "Noto-Sans-CJK_JP",
-            egui::FontData::from_static(include_bytes!("../assets/fonts/NotoSansCJKjp-Regular.otf")),
+            egui::FontData::from_static(include_bytes!(
+                "../assets/fonts/NotoSansCJKjp-Regular.otf"
+            )),
             vec![InsertFontFamily {
                 family: egui::FontFamily::Proportional,
                 priority: egui::epaint::text::FontPriority::Lowest,
@@ -34,7 +38,9 @@ impl AudioConverterApp {
         ));
         cc.egui_ctx.add_font(FontInsert::new(
             "Noto-Sans-CJK_KR",
-            egui::FontData::from_static(include_bytes!("../assets/fonts/NotoSansCJKkr-Regular.otf")),
+            egui::FontData::from_static(include_bytes!(
+                "../assets/fonts/NotoSansCJKkr-Regular.otf"
+            )),
             vec![InsertFontFamily {
                 family: egui::FontFamily::Proportional,
                 priority: egui::epaint::text::FontPriority::Lowest,
@@ -85,8 +91,7 @@ impl AudioConverterApp {
             if !i.raw.dropped_files.is_empty() {
                 // println!("dropped files");
                 for file in &i.raw.dropped_files {
-                    self.files
-                        .push(AudioFile::new(file.clone().path.unwrap()));
+                    self.files.push(AudioFile::new(file.clone().path.unwrap()));
                 }
             }
         });
@@ -106,15 +111,10 @@ impl AudioConverterApp {
             .resizable(true)
             .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
             .column(Column::auto())
-            .column(Column::auto())
-            .column(Column::auto())
-            .column(Column::auto())
-            .column(
-                Column::remainder()
-                    .at_least(50.0)
-                    .clip(true)
-                    .resizable(true),
-            )
+            .column(Column::auto().at_least(75.0).resizable(true))
+            .column(Column::auto().at_least(75.0).resizable(true))
+            .column(Column::auto().at_least(100.0).resizable(true))
+            .column(Column::remainder().resizable(true))
             .min_scrolled_height(0.0)
             .max_scroll_height(available_height);
 
@@ -179,9 +179,7 @@ impl eframe::App for AudioConverterApp {
                 }
             }
 
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                self.file_table(ui);
-            });
+            self.file_table(ui);
         });
 
         egui::SidePanel::right("output_settings").show(ctx, |ui| {
