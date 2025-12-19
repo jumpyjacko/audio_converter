@@ -1,3 +1,5 @@
+use egui::epaint::text::{FontInsert, InsertFontFamily};
+
 use crate::models::audio_file::AudioFile;
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -13,7 +15,32 @@ impl Default for AudioConverterApp {
 }
 
 impl AudioConverterApp {
-    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        cc.egui_ctx.add_font(FontInsert::new(
+            "Noto-Sans-CJK_SC",
+            egui::FontData::from_static(include_bytes!("../assets/fonts/NotoSansCJKsc-Regular.otf")),
+            vec![InsertFontFamily {
+                family: egui::FontFamily::Proportional,
+                priority: egui::epaint::text::FontPriority::Lowest,
+            }],
+        ));
+        cc.egui_ctx.add_font(FontInsert::new(
+            "Noto-Sans-CJK_JP",
+            egui::FontData::from_static(include_bytes!("../assets/fonts/NotoSansCJKjp-Regular.otf")),
+            vec![InsertFontFamily {
+                family: egui::FontFamily::Proportional,
+                priority: egui::epaint::text::FontPriority::Lowest,
+            }],
+        ));
+        cc.egui_ctx.add_font(FontInsert::new(
+            "Noto-Sans-CJK_KR",
+            egui::FontData::from_static(include_bytes!("../assets/fonts/NotoSansCJKkr-Regular.otf")),
+            vec![InsertFontFamily {
+                family: egui::FontFamily::Proportional,
+                priority: egui::epaint::text::FontPriority::Lowest,
+            }],
+        ));
+
         Default::default()
     }
 
@@ -134,8 +161,7 @@ impl eframe::App for AudioConverterApp {
                 && let Some(paths) = rfd::FileDialog::new().pick_files()
             {
                 for file in paths {
-                    self.files
-                        .push(AudioFile::new_from_pathbuf(file));
+                    self.files.push(AudioFile::new_from_pathbuf(file));
                 }
             }
 
