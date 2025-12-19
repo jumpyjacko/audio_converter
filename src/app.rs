@@ -86,7 +86,7 @@ impl AudioConverterApp {
                 // println!("dropped files");
                 for file in &i.raw.dropped_files {
                     self.files
-                        .push(AudioFile::new_from_dropped_file(file.clone()));
+                        .push(AudioFile::new(file.clone().path.unwrap()));
                 }
             }
         });
@@ -107,6 +107,8 @@ impl AudioConverterApp {
             .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
             .column(Column::auto())
             .column(Column::auto())
+            .column(Column::auto())
+            .column(Column::auto())
             .column(
                 Column::remainder()
                     .at_least(50.0)
@@ -121,7 +123,13 @@ impl AudioConverterApp {
         table
             .header(20.0, |mut header| {
                 header.col(|ui| {
+                    ui.strong("Track #");
+                });
+                header.col(|ui| {
                     ui.strong("Artist");
+                });
+                header.col(|ui| {
+                    ui.strong("Album");
                 });
                 header.col(|ui| {
                     ui.strong("Song Title");
@@ -134,7 +142,13 @@ impl AudioConverterApp {
                 for file in &self.files {
                     body.row(text_height, |mut row| {
                         row.col(|ui| {
+                            ui.label(file.track.as_deref().unwrap_or(""));
+                        });
+                        row.col(|ui| {
                             ui.label(file.artist.as_deref().unwrap_or("No artist"));
+                        });
+                        row.col(|ui| {
+                            ui.label(file.album.as_deref().unwrap_or(""));
                         });
                         row.col(|ui| {
                             ui.label(file.title.as_deref().unwrap_or("Untitled"));
@@ -161,7 +175,7 @@ impl eframe::App for AudioConverterApp {
                 && let Some(paths) = rfd::FileDialog::new().pick_files()
             {
                 for file in paths {
-                    self.files.push(AudioFile::new_from_pathbuf(file));
+                    self.files.push(AudioFile::new(file));
                 }
             }
 
