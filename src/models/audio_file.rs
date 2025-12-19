@@ -1,3 +1,4 @@
+use ffmpeg_next::format;
 use std::path::PathBuf;
 
 use egui::DroppedFile;
@@ -9,20 +10,19 @@ pub struct AudioFile {
     pub artist: Option<String>,
     pub title: Option<String>,
     pub filename: String,
-    pub mime: String,
 }
 
 impl AudioFile {
-    pub fn new(path: PathBuf, name: String, mime: String) -> Self {
+    pub fn new(path: PathBuf, name: String) -> Self {
         return Self {
             path: path,
             artist: None,
             title: None,
             filename: name,
-            mime,
         };
     }
 
+    // TODO: gather files from directories
     // TODO: add artist - title metadata detection
     pub fn new_from_dropped_file(file: DroppedFile) -> Self {
         return Self {
@@ -30,17 +30,31 @@ impl AudioFile {
             artist: None,
             title: None,
             filename: file.name,
-            mime: file.mime,
         };
     }
 
     pub fn new_from_pathbuf(path: PathBuf) -> Self {
+        // TODO: gather files from directories
+        // use std::fs;
+        // let metadata = fs::metadata(path.to_string_lossy().to_string());
+        // println!("{:#?}", metadata);
+
+        let filename = path
+            .file_name()
+            .unwrap() // TODO: consider actual error handling lol
+            .to_string_lossy()
+            .to_string();
+
+        let ff_ctx = format::input(&path).expect("Invalid path provided to FFmpeg");
+        let metadata = ff_ctx.metadata();
+        let artist: Option<String> = metadata.get("ARTIST").map(|s| s.to_string()); // HACK: bruh
+        let title: Option<String> = metadata.get("TITLE").map(|s| s.to_string()); // HACK: bruh
+
         return Self {
             path: path,
-            artist: None,
-            title: None,
-            filename: "To be done".to_string(),
-            mime: "To be done".to_string(),
-        }
+            artist: artist,
+            title: title,
+            filename: filename,
+        };
     }
 }

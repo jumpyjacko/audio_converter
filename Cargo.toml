@@ -11,3 +11,5 @@ egui_extras = { version = "0.33.0", features = ["default", "image"] }
 env_logger = { version = "0.11.8", features = ["auto-color", "humantime"] }
 serde = { version = "1.0.219", features = ["derive"] }
 rfd = "=0.16.0"
+
+ffmpeg-next = "8.0.0"

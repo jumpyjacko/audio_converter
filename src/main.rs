@@ -16,6 +16,8 @@ fn main() -> eframe::Result {
         ..Default::default()
     };
 
+    ffmpeg_next::init().expect("Failed to initialise FFmpeg");
+
     eframe::run_native(
         "Batch Audio File Converter",
         options,
