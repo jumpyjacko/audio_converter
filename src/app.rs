@@ -2,15 +2,31 @@ use egui::epaint::text::{FontInsert, InsertFontFamily};
 
 use crate::models::audio_file::AudioFile;
 
+#[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq, Eq)]
+enum FileFormat {
+    FLAC,
+    MP3,
+    AAC,
+    OPUS,
+}
+
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct AudioConverterApp {
     files: Vec<AudioFile>,
+    out_format: FileFormat,
+    out_bitrate: u64,
+    out_directory: String,
 }
 
 impl Default for AudioConverterApp {
     fn default() -> Self {
-        Self { files: Vec::new() }
+        Self {
+            files: Vec::new(),
+            out_format: FileFormat::OPUS,
+            out_bitrate: 128000,
+            out_directory: "./".to_string(),
+        }
     }
 }
 
@@ -169,26 +185,71 @@ impl eframe::App for AudioConverterApp {
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Files");
+            ui.horizontal(|ui| {
+                ui.heading("Files");
 
-            if ui.button("Open file").clicked()
-                && let Some(paths) = rfd::FileDialog::new().pick_files()
-            {
-                for file in paths {
-                    self.files.push(AudioFile::new(file));
+                ui.add_space(10.0);
+
+                if ui.button("Open file").clicked()
+                    && let Some(paths) = rfd::FileDialog::new().pick_files()
+                {
+                    for file in paths {
+                        self.files.push(AudioFile::new(file));
+                    }
                 }
-            }
+            });
 
             self.file_table(ui);
         });
 
         egui::SidePanel::right("output_settings").show(ctx, |ui| {
             ui.heading("Settings");
+            ui.separator();
 
-            ui.label("Format Settings");
+            egui::Grid::new("format_settings")
+                .num_columns(2)
+                .striped(true)
+                .show(ui, |ui| {
+                    ui.heading("Format Settings");
+                    ui.end_row();
+
+                    ui.label("Audio codec");
+                    egui::ComboBox::from_id_salt("output_format_combobox")
+                        .selected_text(match self.out_format {
+                            FileFormat::FLAC => ".flac",
+                            FileFormat::MP3 => ".mp3",
+                            FileFormat::AAC => ".aac",
+                            FileFormat::OPUS => ".opus",
+                        })
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(&mut self.out_format, FileFormat::FLAC, ".flac");
+                            ui.selectable_value(&mut self.out_format, FileFormat::MP3, ".mp3");
+                            ui.selectable_value(&mut self.out_format, FileFormat::AAC, ".aac");
+                            ui.selectable_value(&mut self.out_format, FileFormat::OPUS, ".opus");
+                        });
+                    ui.end_row();
+
+                    ui.label("Bitrate");
+                    ui.add(egui::DragValue::new(&mut self.out_bitrate).speed(1000.0));
+                    ui.end_row();
+                });
 
             ui.separator();
-            ui.label("other settings idk");
+
+            egui::Grid::new("output_settings")
+                .num_columns(2)
+                .striped(true)
+                .show(ui, |ui| {
+                    ui.heading("Output settings");
+                    ui.end_row();
+
+                    ui.label("Output Directory");
+                    ui.text_edit_singleline(&mut self.out_directory);
+                });
+
+            ui.separator();
+
+            if ui.button("Convert!").clicked() {}
         });
 
         self.preview_dropped_files(ctx);
