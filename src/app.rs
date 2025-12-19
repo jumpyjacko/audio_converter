@@ -1,4 +1,4 @@
-use crate::models::AudioFile;
+use crate::models::audio_file::AudioFile;
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
@@ -130,7 +130,14 @@ impl eframe::App for AudioConverterApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Files");
 
-            if ui.button("Open file").clicked() {}
+            if ui.button("Open file").clicked()
+                && let Some(paths) = rfd::FileDialog::new().pick_files()
+            {
+                for file in paths {
+                    self.files
+                        .push(AudioFile::new_from_pathbuf(file));
+                }
+            }
 
             egui::ScrollArea::vertical().show(ui, |ui| {
                 self.file_table(ui);

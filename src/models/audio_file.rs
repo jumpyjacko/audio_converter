@@ -33,4 +33,14 @@ impl AudioFile {
             mime: file.mime,
         };
     }
+
+    pub fn new_from_pathbuf(path: PathBuf) -> Self {
+        return Self {
+            path: path,
+            artist: None,
+            title: None,
+            filename: "To be done".to_string(),
+            mime: "To be done".to_string(),
+        }
+    }
 }
