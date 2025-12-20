@@ -40,6 +40,7 @@ impl AudioFile {
         };
     }
 
+    // TODO: URGENT, need to optimise or chuck this to a different thread from the UI (main) thread
     pub fn get_album_art(&self) -> Result<Option<Vec<u8>>, ffmpeg_next::Error> {
         let mut ff_ctx = format::input(&self.path)?;
 
@@ -64,17 +65,23 @@ impl AudioFile {
     }
 
     pub fn load_album_art(&self, ctx: &egui::Context) -> Option<TextureHandle> {
-        let path = self.path.to_string_lossy().to_string();
-        let key = egui::Id::new(("album_art", path.clone()));
+        let placeholder_key = egui::Id::new(("album_art_placeholder", self.path.to_string_lossy().to_string()));
 
-        if let Some(texture) = ctx.data_mut(|data| data.get_temp::<TextureHandle>(key)) {
+        if let Some(texture) = ctx.data_mut(|data| data.get_temp::<TextureHandle>(placeholder_key)) {
             return Some(texture.clone());
         }
 
         let bytes = self.get_album_art().ok()??;
+        let hash = get_image_hash(&bytes);
+        let key = egui::Id::new(("album_art", hash));
+
+        if let Some(texture) = ctx.data(|data| data.get_temp::<TextureHandle>(key)) {
+            return Some(texture.clone());
+        }
+
         let image = decode_image(&bytes).ok()?;
 
-        let texture = ctx.load_texture(path, image, egui::TextureOptions::LINEAR);
+        let texture = ctx.load_texture(format!("album_{}", hash), image, egui::TextureOptions::LINEAR);
 
         ctx.data_mut(|data| {
             data.insert_temp(key, texture.clone());
@@ -96,4 +103,13 @@ fn decode_image(bytes: &[u8]) -> Result<egui::ColorImage, image::ImageError> {
     let size = [resized.width() as usize, resized.height() as usize];
 
     Ok(egui::ColorImage::from_rgba_unmultiplied(size, &resized))
+}
+
+fn get_image_hash(bytes: &[u8]) -> u64 {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
+    let mut hasher = DefaultHasher::new();
+    bytes.hash(&mut hasher);
+    hasher.finish()
 }

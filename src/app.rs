@@ -1,6 +1,4 @@
-use std::path::PathBuf;
-
-use egui::epaint::text::{FontInsert, InsertFontFamily};
+use egui::{Vec2, epaint::text::{FontInsert, InsertFontFamily}};
 
 use crate::models::audio_file::AudioFile;
 
@@ -301,6 +299,7 @@ impl AudioConverterApp {
                 if let Some(texture) = texture {
                     ui.add(
                         egui::Image::from_texture(&texture)
+                            .fit_to_fraction(Vec2::ONE)
                             .max_width(300.0)
                             .corner_radius(5),
                     );
