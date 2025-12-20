@@ -129,7 +129,7 @@ impl AudioConverterApp {
             .column(Column::auto())
             .column(Column::auto().at_least(75.0).resizable(true))
             .column(Column::auto().at_least(75.0).resizable(true))
-            .column(Column::auto().at_least(100.0).resizable(true))
+            .column(Column::auto().at_least(75.0).resizable(true))
             .column(Column::remainder().resizable(true))
             .min_scrolled_height(0.0)
             .max_scroll_height(available_height);
@@ -184,24 +184,6 @@ impl eframe::App for AudioConverterApp {
             ui.heading("Batch Audio File Converter");
         });
 
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                ui.heading("Files");
-
-                ui.add_space(10.0);
-
-                if ui.button("Open file").clicked()
-                    && let Some(paths) = rfd::FileDialog::new().pick_files()
-                {
-                    for file in paths {
-                        self.files.push(AudioFile::new(file));
-                    }
-                }
-            });
-
-            self.file_table(ui);
-        });
-
         egui::SidePanel::right("output_settings").show(ctx, |ui| {
             ui.heading("Settings");
             ui.separator();
@@ -250,6 +232,33 @@ impl eframe::App for AudioConverterApp {
             ui.separator();
 
             if ui.button("Convert!").clicked() {}
+        });
+
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                ui.heading("Files");
+
+                ui.add_space(10.0);
+
+                if ui.button("Open files").clicked()
+                    && let Some(paths) = rfd::FileDialog::new().pick_files()
+                {
+                    for file in paths {
+                        self.files.push(AudioFile::new(file));
+                    }
+                }
+            });
+
+            egui::ScrollArea::horizontal().show(ui, |ui| {
+                self.file_table(ui);
+            });
+
+            if self.files.is_empty() {
+                ui.vertical_centered(|ui| {
+                    ui.add_space(ui.available_height() / 2.0 - 20.0);
+                    ui.heading("Drag and drop a file or folder into the window to get started or click the 'Open files' button");
+                });
+            }
         });
 
         self.preview_dropped_files(ctx);
