@@ -14,6 +14,11 @@ enum FileFormat {
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct AudioConverterApp {
     files: Vec<AudioFile>,
+
+    // Interaction
+    table_selection: Option<usize>,
+
+    // Settings
     out_format: FileFormat,
     out_bitrate: u64,
     out_directory: String,
@@ -23,6 +28,9 @@ impl Default for AudioConverterApp {
     fn default() -> Self {
         Self {
             files: Vec::new(),
+
+            table_selection: None,
+
             out_format: FileFormat::OPUS,
             out_bitrate: 128000,
             out_directory: "./".to_string(),
@@ -155,8 +163,12 @@ impl AudioConverterApp {
                 });
             })
             .body(|mut body| {
-                for file in &self.files {
+                let mut clicked_row: Option<usize> = None;
+                
+                for (i, file) in self.files.iter().enumerate() {
                     body.row(text_height, |mut row| {
+                        row.set_selected(self.table_selection == Some(i));
+
                         row.col(|ui| {
                             ui.label(file.track.as_deref().unwrap_or(""));
                         });
@@ -172,7 +184,15 @@ impl AudioConverterApp {
                         row.col(|ui| {
                             ui.label(file.path.to_string_lossy());
                         });
-                    })
+
+                        if row.response().clicked() {
+                            clicked_row = Some(i);
+                        }
+                    });
+                }
+
+                if let Some(i) = clicked_row {
+                    self.toggle_row_selection(i);
                 }
             });
     }
@@ -223,6 +243,14 @@ impl AudioConverterApp {
 
         if ui.button("Convert!").clicked() {}
     }
+
+    fn toggle_row_selection(&mut self, row_index: usize) {
+        if self.table_selection == Some(row_index) {
+            self.table_selection = None;
+        } else {
+            self.table_selection = Some(row_index);
+        }
+    }
 }
 
 impl eframe::App for AudioConverterApp {
@@ -249,6 +277,12 @@ impl eframe::App for AudioConverterApp {
                 {
                     for file in paths {
                         self.files.push(AudioFile::new(file));
+                    }
+                }
+
+                if ui.button("debug: print out selected row").clicked() {
+                    if self.table_selection.is_some() {
+                        println!("{:#?}", self.files.get(self.table_selection.unwrap()));
                     }
                 }
             });
