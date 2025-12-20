@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use egui::epaint::text::{FontInsert, InsertFontFamily};
 
 use crate::models::audio_file::AudioFile;
@@ -10,9 +12,10 @@ enum FileFormat {
     OPUS,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
+#[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct AudioConverterApp {
+    #[serde(skip)]
     files: Vec<AudioFile>,
 
     // Interaction
@@ -37,6 +40,11 @@ impl Default for AudioConverterApp {
         }
     }
 }
+
+// Empty placeholder texts
+const NO_ARTIST: &str = "[no artist]";
+const NO_ALBUM: &str = "";
+const NO_TITLE: &str = "Untitled";
 
 impl AudioConverterApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
@@ -164,7 +172,7 @@ impl AudioConverterApp {
             })
             .body(|mut body| {
                 let mut clicked_row: Option<usize> = None;
-                
+
                 for (i, file) in self.files.iter().enumerate() {
                     body.row(text_height, |mut row| {
                         row.set_selected(self.table_selection == Some(i));
@@ -173,13 +181,13 @@ impl AudioConverterApp {
                             ui.label(file.track.as_deref().unwrap_or(""));
                         });
                         row.col(|ui| {
-                            ui.label(file.artist.as_deref().unwrap_or("No artist"));
+                            ui.label(file.artist.as_deref().unwrap_or(NO_ARTIST));
                         });
                         row.col(|ui| {
-                            ui.label(file.album.as_deref().unwrap_or(""));
+                            ui.label(file.album.as_deref().unwrap_or(NO_ALBUM));
                         });
                         row.col(|ui| {
-                            ui.label(file.title.as_deref().unwrap_or("Untitled"));
+                            ui.label(file.title.as_deref().unwrap_or(NO_TITLE));
                         });
                         row.col(|ui| {
                             ui.label(file.path.to_string_lossy());
@@ -195,6 +203,14 @@ impl AudioConverterApp {
                     self.toggle_row_selection(i);
                 }
             });
+    }
+
+    fn toggle_row_selection(&mut self, row_index: usize) {
+        if self.table_selection == Some(row_index) {
+            self.table_selection = None;
+        } else {
+            self.table_selection = Some(row_index);
+        }
     }
 
     fn settings_list(&mut self, ui: &mut egui::Ui) {
@@ -244,12 +260,54 @@ impl AudioConverterApp {
         if ui.button("Convert!").clicked() {}
     }
 
-    fn toggle_row_selection(&mut self, row_index: usize) {
-        if self.table_selection == Some(row_index) {
-            self.table_selection = None;
-        } else {
-            self.table_selection = Some(row_index);
-        }
+    fn file_info_popup(&mut self, ctx: &egui::Context) {
+        use egui::Align2;
+
+        let file = self.files.get(self.table_selection.unwrap()).unwrap();
+
+        egui::Window::new("File information")
+            .movable(true)
+            .min_width(300.0)
+            .max_width(300.0)
+            .anchor(Align2::RIGHT_BOTTOM, egui::vec2(-10.0, -10.0))
+            .resizable(false)
+            .show(ctx, |ui| {
+                // TODO: maybe not clone
+                ui.heading(file.title.clone().unwrap_or(NO_TITLE.to_string()));
+                egui::Grid::new("detailed_file_info")
+                    .num_columns(2)
+                    .striped(true)
+                    .show(ui, |ui| {
+                        ui.label("Artist:");
+                        ui.label(file.artist.clone().unwrap_or(NO_ARTIST.to_string()));
+                        ui.end_row();
+
+                        ui.label("Album:");
+                        ui.label(file.album.clone().unwrap_or(NO_ALBUM.to_string()));
+                        ui.end_row();
+
+                        ui.label("File path:");
+                        ui.add(
+                            egui::Label::new(file.path.clone().to_string_lossy().to_string())
+                                .wrap(),
+                        );
+                        ui.end_row();
+                    });
+
+                ui.separator();
+
+                let texture = file.load_album_art(ctx);
+
+                if let Some(texture) = texture {
+                    ui.add(
+                        egui::Image::from_texture(&texture)
+                            .max_width(300.0)
+                            .corner_radius(5),
+                    );
+                } else {
+                    ui.label("<No image>");
+                }
+            });
     }
 }
 
@@ -279,12 +337,6 @@ impl eframe::App for AudioConverterApp {
                         self.files.push(AudioFile::new(file));
                     }
                 }
-
-                if ui.button("debug: print out selected row").clicked() {
-                    if self.table_selection.is_some() {
-                        println!("{:#?}", self.files.get(self.table_selection.unwrap()));
-                    }
-                }
             });
 
             egui::ScrollArea::horizontal().show(ui, |ui| {
@@ -298,6 +350,10 @@ impl eframe::App for AudioConverterApp {
                 });
             }
         });
+
+        if self.table_selection.is_some() {
+            self.file_info_popup(ctx);
+        }
 
         self.preview_dropped_files(ctx);
     }

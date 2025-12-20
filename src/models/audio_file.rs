@@ -1,7 +1,9 @@
+use egui::TextureHandle;
 use ffmpeg_next::format;
+use image::imageops::FilterType;
 use std::path::PathBuf;
 
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+#[derive(Clone)]
 pub struct AudioFile {
     pub path: PathBuf,
     pub artist: Option<String>,
@@ -37,4 +39,61 @@ impl AudioFile {
             filename: filename,
         };
     }
+
+    pub fn get_album_art(&self) -> Result<Option<Vec<u8>>, ffmpeg_next::Error> {
+        let mut ff_ctx = format::input(&self.path)?;
+
+        let stream = match ff_ctx.streams().find(|s| {
+            s.parameters().medium() == ffmpeg_next::media::Type::Video
+                && s.disposition()
+                    .contains(ffmpeg_next::format::stream::Disposition::ATTACHED_PIC)
+        }) {
+            Some(s) => s,
+            None => return Ok(None),
+        };
+
+        let stream_index = stream.index();
+
+        for (s, packet) in ff_ctx.packets() {
+            if s.index() == stream_index {
+                return Ok(Some(packet.data().unwrap().to_vec()));
+            }
+        }
+
+        Ok(None)
+    }
+
+    pub fn load_album_art(&self, ctx: &egui::Context) -> Option<TextureHandle> {
+        let path = self.path.to_string_lossy().to_string();
+        let key = egui::Id::new(("album_art", path.clone()));
+
+        if let Some(texture) = ctx.data_mut(|data| data.get_temp::<TextureHandle>(key)) {
+            return Some(texture.clone());
+        }
+
+        let bytes = self.get_album_art().ok()??;
+        let image = decode_image(&bytes).ok()?;
+
+        let texture = ctx.load_texture(path, image, egui::TextureOptions::LINEAR);
+
+        ctx.data_mut(|data| {
+            data.insert_temp(key, texture.clone());
+        });
+
+        Some(texture)
+    }
+}
+
+fn decode_image(bytes: &[u8]) -> Result<egui::ColorImage, image::ImageError> {
+    let image = image::load_from_memory(bytes)?.to_rgba8();
+    let resized = image::imageops::resize(
+        &image,
+        300,
+        300,
+        FilterType::Lanczos3,
+    );
+
+    let size = [resized.width() as usize, resized.height() as usize];
+
+    Ok(egui::ColorImage::from_rgba_unmultiplied(size, &resized))
 }
