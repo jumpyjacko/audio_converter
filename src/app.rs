@@ -1,6 +1,9 @@
-use egui::{Vec2, epaint::text::{FontInsert, InsertFontFamily}};
+use std::sync::mpsc;
+use egui::{
+    Vec2, epaint::text::{FontInsert, InsertFontFamily}
+};
 
-use crate::models::audio_file::AudioFile;
+use crate::models::audio_file::{AlbumArtError, AudioFile, get_image_hash};
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq, Eq)]
 enum FileFormat {
@@ -13,8 +16,17 @@ enum FileFormat {
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct AudioConverterApp {
+    // State
     #[serde(skip)]
     files: Vec<AudioFile>,
+    #[serde(skip)]
+    album_art_rx: Option<mpsc::Receiver<Result<egui::ColorImage, AlbumArtError>>>,
+    #[serde(skip)]
+    album_art_hash: Option<u64>,
+    #[serde(skip)]
+    album_art: Option<egui::TextureHandle>,
+    #[serde(skip)]
+    prev_album_art_path: Option<std::path::PathBuf>,
 
     // Interaction
     table_selection: Option<usize>,
@@ -29,6 +41,10 @@ impl Default for AudioConverterApp {
     fn default() -> Self {
         Self {
             files: Vec::new(),
+            album_art_rx: None,
+            album_art_hash: None,
+            album_art: None,
+            prev_album_art_path: None,
 
             table_selection: None,
 
@@ -294,15 +310,55 @@ impl AudioConverterApp {
 
                 ui.separator();
 
-                if let Some(texture) = file.load_album_art(ctx) {
+                // This entire bit is so scuffed
+                let parent_changed = self.prev_album_art_path.as_ref().map(|p| p.parent())
+                    != Some(file.path.parent());
+                let needs_reload =
+                    self.album_art_rx.is_none() && (self.album_art.is_none() || parent_changed); // TODO: check hashes
+                if needs_reload {
+                    self.prev_album_art_path = Some(file.path.clone());
+                    self.album_art_rx = Some(file.load_album_art());
+                    self.album_art = None;
+                }
+
+                if let Some(rx) = &self.album_art_rx {
+                    match rx.try_recv() {
+                        Ok(Ok(image)) => {
+                            let hash = get_image_hash(image.as_raw());
+
+                            if self.album_art_hash == Some(hash) {
+                                self.album_art_rx = None;
+                                return;
+                            }
+
+                            let texture = ctx.load_texture(
+                                format!("album_{}", hash),
+                                image,
+                                egui::TextureOptions::LINEAR,
+                            );
+
+                            self.album_art_hash = Some(hash);
+                            self.album_art = Some(texture);
+                            self.album_art_rx = None;
+
+                            ctx.request_repaint();
+                        }
+                        Ok(Err(_)) | Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                            self.album_art_rx = None;
+                        }
+                        Err(mpsc::TryRecvError::Empty) => {
+                            let _ = ui.label("Loading image...");
+                        }
+                    }
+                }
+
+                if let Some(texture) = &self.album_art {
                     ui.add(
-                        egui::Image::from_texture(&texture)
+                        egui::Image::from_texture(texture)
                             .fit_to_fraction(Vec2::ONE)
                             .max_width(300.0)
                             .corner_radius(5),
                     );
-                } else {
-                    ui.label("Loading image...");
                 }
             });
     }

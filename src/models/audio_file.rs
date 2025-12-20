@@ -1,7 +1,13 @@
-use egui::TextureHandle;
 use ffmpeg_next::format;
-use image::imageops::FilterType;
 use std::path::PathBuf;
+use std::sync::mpsc;
+use std::thread;
+
+#[derive(Debug)]
+pub enum AlbumArtError {
+    NotFound,
+    DecodeFailed,
+}
 
 #[derive(Clone)]
 pub struct AudioFile {
@@ -10,7 +16,6 @@ pub struct AudioFile {
     pub album: Option<String>,
     pub title: Option<String>,
     pub track: Option<String>,
-    pub filename: String,
 }
 
 impl Default for AudioFile {
@@ -21,7 +26,6 @@ impl Default for AudioFile {
             album: Default::default(),
             title: Default::default(),
             track: Default::default(),
-            filename: Default::default(),
         }
     }
 }
@@ -30,12 +34,6 @@ impl AudioFile {
     // TODO: gather files from directories
 
     pub fn new(path: PathBuf) -> Self {
-        let filename = path
-            .file_name()
-            .unwrap() // TODO: consider actual error handling lol
-            .to_string_lossy()
-            .to_string();
-
         let ff_ctx = format::input(&path).expect("Invalid path provided to FFmpeg");
         let metadata = ff_ctx.metadata();
         let artist: Option<String> = metadata.get("ARTIST").map(|s| s.to_string()); // HACK: bruh
@@ -49,11 +47,9 @@ impl AudioFile {
             album: album,
             title: title,
             track: track,
-            filename: filename,
         };
     }
 
-    // TODO: URGENT, need to optimise or chuck this to a different thread from the UI (main) thread
     pub fn ff_get_album_art(&self) -> Result<Option<Vec<u8>>, ffmpeg_next::Error> {
         let mut ff_ctx = format::input(&self.path)?;
 
@@ -77,51 +73,47 @@ impl AudioFile {
         Ok(None)
     }
 
-    pub fn load_album_art(&self, ctx: &egui::Context) -> Option<TextureHandle> {
-        let placeholder_key = egui::Id::new((
-            "album_art_placeholder",
-            self.path.to_string_lossy().to_string(),
-        ));
+    pub fn load_album_art(&self) -> mpsc::Receiver<Result<egui::ColorImage, AlbumArtError>> {
+        let (tx, rx) = mpsc::channel();
+        let path = self.path.clone();
 
-        if let Some(texture) = ctx.data_mut(|data| data.get_temp::<TextureHandle>(placeholder_key))
-        {
-            return Some(texture.clone());
-        }
+        thread::spawn(move || {
+            // println!("started getting image");
+            let audio_file = AudioFile {
+                path,
+                ..Default::default()
+            };
+            let result = audio_file
+                .ff_get_album_art()
+                .ok()
+                .flatten()
+                .ok_or(AlbumArtError::NotFound);
 
-        let bytes = self.ff_get_album_art().ok()??;
-        let hash = get_image_hash(&bytes);
-        let key = egui::Id::new(("album_art", hash));
+            // println!("decoding image...");
+            let image = decode_image(&result.unwrap())
+                .ok()
+                .ok_or(AlbumArtError::DecodeFailed); // TODO: error handle
 
-        if let Some(texture) = ctx.data(|data| data.get_temp::<TextureHandle>(key)) {
-            return Some(texture.clone());
-        }
-
-        let image = decode_image(&bytes).ok()?;
-
-        let texture = ctx.load_texture(
-            format!("album_{}", hash),
-            image,
-            egui::TextureOptions::LINEAR,
-        );
-
-        ctx.data_mut(|data| {
-            data.insert_temp(key, texture.clone());
+            // println!("finished getting image, sending via tx");
+            let _ = tx.send(image);
         });
 
-        Some(texture)
+        rx
     }
 }
 
+// TODO: this is the culprit, image decode is hella slow
 fn decode_image(bytes: &[u8]) -> Result<egui::ColorImage, image::ImageError> {
-    let image = image::load_from_memory(bytes)?.to_rgba8();
-    let resized = image::imageops::resize(&image, 300, 300, FilterType::Lanczos3);
+    use std::io::Cursor;
+    use image::ImageReader;
 
-    let size = [resized.width() as usize, resized.height() as usize];
+    let reader = ImageReader::new(Cursor::new(bytes)).with_guessed_format()?;
+    let img = reader.decode()?.thumbnail_exact(300, 300).to_rgba8();
 
-    Ok(egui::ColorImage::from_rgba_unmultiplied(size, &resized))
+    Ok(egui::ColorImage::from_rgba_unmultiplied([300, 300], &img))
 }
 
-fn get_image_hash(bytes: &[u8]) -> u64 {
+pub fn get_image_hash(bytes: &[u8]) -> u64 {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
 
