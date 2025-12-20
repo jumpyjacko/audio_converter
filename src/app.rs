@@ -171,9 +171,9 @@ impl AudioConverterApp {
             .body(|mut body| {
                 let mut clicked_row: Option<usize> = None;
 
-                for (i, file) in self.files.iter().enumerate() {
+                for file in &self.files {
                     body.row(text_height, |mut row| {
-                        row.set_selected(self.table_selection == Some(i));
+                        row.set_selected(self.table_selection == Some(row.index()));
 
                         row.col(|ui| {
                             ui.label(file.track.as_deref().unwrap_or(""));
@@ -192,7 +192,7 @@ impl AudioConverterApp {
                         });
 
                         if row.response().clicked() {
-                            clicked_row = Some(i);
+                            clicked_row = Some(row.index());
                         }
                     });
                 }
