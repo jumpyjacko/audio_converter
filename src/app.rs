@@ -176,6 +176,53 @@ impl AudioConverterApp {
                 }
             });
     }
+
+    fn settings_list(&mut self, ui: &mut egui::Ui) {
+        egui::Grid::new("format_settings")
+            .num_columns(2)
+            .striped(true)
+            .show(ui, |ui| {
+                ui.heading("Format Settings");
+                ui.end_row();
+
+                ui.label("Audio codec");
+                egui::ComboBox::from_id_salt("output_format_combobox")
+                    .selected_text(match self.out_format {
+                        FileFormat::FLAC => ".flac",
+                        FileFormat::MP3 => ".mp3",
+                        FileFormat::AAC => ".aac",
+                        FileFormat::OPUS => ".opus",
+                    })
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(&mut self.out_format, FileFormat::FLAC, ".flac");
+                        ui.selectable_value(&mut self.out_format, FileFormat::MP3, ".mp3");
+                        ui.selectable_value(&mut self.out_format, FileFormat::AAC, ".aac");
+                        ui.selectable_value(&mut self.out_format, FileFormat::OPUS, ".opus");
+                    });
+                ui.end_row();
+
+                ui.label("Bitrate");
+                ui.add(egui::DragValue::new(&mut self.out_bitrate).speed(1000.0));
+                ui.end_row();
+            });
+
+        ui.separator();
+
+        egui::Grid::new("output_settings")
+            .num_columns(2)
+            .striped(true)
+            .show(ui, |ui| {
+                ui.heading("Output settings");
+                ui.end_row();
+
+                ui.label("Output Directory");
+                ui.text_edit_singleline(&mut self.out_directory);
+            });
+
+        ui.separator();
+
+        if ui.button("Convert!").clicked() {}
+    }
 }
 
 impl eframe::App for AudioConverterApp {
@@ -188,50 +235,7 @@ impl eframe::App for AudioConverterApp {
             ui.heading("Settings");
             ui.separator();
 
-            egui::Grid::new("format_settings")
-                .num_columns(2)
-                .striped(true)
-                .show(ui, |ui| {
-                    ui.heading("Format Settings");
-                    ui.end_row();
-
-                    ui.label("Audio codec");
-                    egui::ComboBox::from_id_salt("output_format_combobox")
-                        .selected_text(match self.out_format {
-                            FileFormat::FLAC => ".flac",
-                            FileFormat::MP3 => ".mp3",
-                            FileFormat::AAC => ".aac",
-                            FileFormat::OPUS => ".opus",
-                        })
-                        .show_ui(ui, |ui| {
-                            ui.selectable_value(&mut self.out_format, FileFormat::FLAC, ".flac");
-                            ui.selectable_value(&mut self.out_format, FileFormat::MP3, ".mp3");
-                            ui.selectable_value(&mut self.out_format, FileFormat::AAC, ".aac");
-                            ui.selectable_value(&mut self.out_format, FileFormat::OPUS, ".opus");
-                        });
-                    ui.end_row();
-
-                    ui.label("Bitrate");
-                    ui.add(egui::DragValue::new(&mut self.out_bitrate).speed(1000.0));
-                    ui.end_row();
-                });
-
-            ui.separator();
-
-            egui::Grid::new("output_settings")
-                .num_columns(2)
-                .striped(true)
-                .show(ui, |ui| {
-                    ui.heading("Output settings");
-                    ui.end_row();
-
-                    ui.label("Output Directory");
-                    ui.text_edit_singleline(&mut self.out_directory);
-                });
-
-            ui.separator();
-
-            if ui.button("Convert!").clicked() {}
+            self.settings_list(ui);
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
