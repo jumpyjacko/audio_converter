@@ -294,9 +294,7 @@ impl AudioConverterApp {
 
                 ui.separator();
 
-                let texture = file.load_album_art(ctx);
-
-                if let Some(texture) = texture {
+                if let Some(texture) = file.load_album_art(ctx) {
                     ui.add(
                         egui::Image::from_texture(&texture)
                             .fit_to_fraction(Vec2::ONE)
@@ -304,7 +302,7 @@ impl AudioConverterApp {
                             .corner_radius(5),
                     );
                 } else {
-                    ui.label("<No image>");
+                    ui.label("Loading image...");
                 }
             });
     }

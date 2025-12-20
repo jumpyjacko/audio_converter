@@ -13,6 +13,19 @@ pub struct AudioFile {
     pub filename: String,
 }
 
+impl Default for AudioFile {
+    fn default() -> Self {
+        Self {
+            path: Default::default(),
+            artist: Default::default(),
+            album: Default::default(),
+            title: Default::default(),
+            track: Default::default(),
+            filename: Default::default(),
+        }
+    }
+}
+
 impl AudioFile {
     // TODO: gather files from directories
 
@@ -41,7 +54,7 @@ impl AudioFile {
     }
 
     // TODO: URGENT, need to optimise or chuck this to a different thread from the UI (main) thread
-    pub fn get_album_art(&self) -> Result<Option<Vec<u8>>, ffmpeg_next::Error> {
+    pub fn ff_get_album_art(&self) -> Result<Option<Vec<u8>>, ffmpeg_next::Error> {
         let mut ff_ctx = format::input(&self.path)?;
 
         let stream = match ff_ctx.streams().find(|s| {
@@ -65,13 +78,17 @@ impl AudioFile {
     }
 
     pub fn load_album_art(&self, ctx: &egui::Context) -> Option<TextureHandle> {
-        let placeholder_key = egui::Id::new(("album_art_placeholder", self.path.to_string_lossy().to_string()));
+        let placeholder_key = egui::Id::new((
+            "album_art_placeholder",
+            self.path.to_string_lossy().to_string(),
+        ));
 
-        if let Some(texture) = ctx.data_mut(|data| data.get_temp::<TextureHandle>(placeholder_key)) {
+        if let Some(texture) = ctx.data_mut(|data| data.get_temp::<TextureHandle>(placeholder_key))
+        {
             return Some(texture.clone());
         }
 
-        let bytes = self.get_album_art().ok()??;
+        let bytes = self.ff_get_album_art().ok()??;
         let hash = get_image_hash(&bytes);
         let key = egui::Id::new(("album_art", hash));
 
@@ -81,7 +98,11 @@ impl AudioFile {
 
         let image = decode_image(&bytes).ok()?;
 
-        let texture = ctx.load_texture(format!("album_{}", hash), image, egui::TextureOptions::LINEAR);
+        let texture = ctx.load_texture(
+            format!("album_{}", hash),
+            image,
+            egui::TextureOptions::LINEAR,
+        );
 
         ctx.data_mut(|data| {
             data.insert_temp(key, texture.clone());
@@ -93,12 +114,7 @@ impl AudioFile {
 
 fn decode_image(bytes: &[u8]) -> Result<egui::ColorImage, image::ImageError> {
     let image = image::load_from_memory(bytes)?.to_rgba8();
-    let resized = image::imageops::resize(
-        &image,
-        300,
-        300,
-        FilterType::Lanczos3,
-    );
+    let resized = image::imageops::resize(&image, 300, 300, FilterType::Lanczos3);
 
     let size = [resized.width() as usize, resized.height() as usize];
 
