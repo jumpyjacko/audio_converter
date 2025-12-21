@@ -3,10 +3,18 @@ use std::path::PathBuf;
 use std::sync::mpsc;
 use std::thread;
 
+pub const ALLOWED_INPUT_TYPES: [&str; 7] = ["flac", "mp3", "ogg", "wav", "opus", "aac", "m4a"];
+
 #[derive(Debug)]
 pub enum AlbumArtError {
     NotFound,
     DecodeFailed,
+}
+
+#[derive(Debug)]
+pub enum AudioFileError {
+    NotAnAudioFile,
+    NotADirectory,
 }
 
 #[derive(Clone)]
@@ -31,9 +39,13 @@ impl Default for AudioFile {
 }
 
 impl AudioFile {
-    // TODO: gather files from directories
+    pub fn new(path: PathBuf) -> Result<Self, AudioFileError> {
+        if !ALLOWED_INPUT_TYPES.contains(&path.extension().unwrap().to_str().unwrap()) {
+            // TODO: literally what am i writing
+            return Err(AudioFileError::NotAnAudioFile);
+        }
 
-    pub fn new(path: PathBuf) -> Self {
+        // TODO: support .opus metadata? need to search how kid3 adds metadata to a .opus file lol
         let ff_ctx = format::input(&path).expect("Invalid path provided to FFmpeg");
         let metadata = ff_ctx.metadata();
         let artist: Option<String> = metadata.get("ARTIST").map(|s| s.to_string()); // HACK: bruh
@@ -41,13 +53,36 @@ impl AudioFile {
         let title: Option<String> = metadata.get("TITLE").map(|s| s.to_string()); // HACK: bruh
         let track: Option<String> = metadata.get("track").map(|s| s.to_string()); // HACK: bruh
 
-        return Self {
+        return Ok(Self {
             path: path,
             artist: artist,
             album: album,
             title: title,
             track: track,
-        };
+        });
+    }
+
+    pub fn from_directory(path: PathBuf) -> Result<Vec<Self>, AudioFileError> {
+        if !path.is_dir() {
+            return Err(AudioFileError::NotADirectory);
+        }
+
+        let mut files: Vec<Self> = Vec::new();
+
+        for file in path.read_dir().unwrap() {
+            if let Ok(file) = file {
+                let audio_file = match AudioFile::new(file.path()) {
+                    Ok(af) => af,
+                    Err(AudioFileError::NotAnAudioFile) => continue, // NOTE: bc it probably isn't an audio file, we can ignore
+                    Err(_) => panic!("hdwgh?"),
+                };
+                files.push(audio_file);
+            }
+        }
+
+        files.sort_unstable_by_key(|f| f.track.as_deref().and_then(parse_track_string));
+
+        return Ok(files);
     }
 
     pub fn ff_get_album_art(&self) -> Result<Option<Vec<u8>>, ffmpeg_next::Error> {
@@ -104,8 +139,8 @@ impl AudioFile {
 
 // TODO: this is the culprit, image decode is hella slow
 fn decode_image(bytes: &[u8]) -> Result<egui::ColorImage, image::ImageError> {
-    use std::io::Cursor;
     use image::ImageReader;
+    use std::io::Cursor;
 
     let reader = ImageReader::new(Cursor::new(bytes)).with_guessed_format()?;
     let img = reader.decode()?.thumbnail_exact(300, 300).to_rgba8();
@@ -120,4 +155,9 @@ pub fn get_image_hash(bytes: &[u8]) -> u64 {
     let mut hasher = DefaultHasher::new();
     bytes.hash(&mut hasher);
     hasher.finish()
+}
+
+// TODO: handle strange track number strings?? i've never encountered other types than '1' and '1/12'
+fn parse_track_string(s: &str) -> Option<u32> {
+    s.split('/').next().and_then(|n| n.parse::<u32>().ok())
 }
