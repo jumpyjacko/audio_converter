@@ -311,6 +311,7 @@ impl AudioConverterApp {
             .max_width(300.0)
             .anchor(Align2::RIGHT_BOTTOM, egui::vec2(-10.0, -10.0))
             .resizable(false)
+            .default_open(false)
             .show(ctx, |ui| {
                 // TODO: maybe not clone
                 ui.heading(file.title.clone().unwrap_or(NO_TITLE.to_string()));
