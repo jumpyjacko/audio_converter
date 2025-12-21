@@ -400,7 +400,9 @@ impl eframe::App for AudioConverterApp {
             ui.heading("Settings");
             ui.separator();
 
-            self.settings_list(ui);
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                self.settings_list(ui);
+            });
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
