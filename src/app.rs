@@ -263,11 +263,11 @@ impl AudioConverterApp {
 
         ui.separator();
 
-        egui::Grid::new("format_settings")
+        egui::Grid::new("output_settings")
             .num_columns(2)
             .striped(true)
             .show(ui, |ui| {
-                ui.heading("Format Settings");
+                ui.heading("Output settings");
                 ui.end_row();
 
                 ui.label("Audio codec");
@@ -365,22 +365,13 @@ impl AudioConverterApp {
                         }
                     });
                 ui.end_row();
+
                 ui.label("Bitrate");
                 ui.add(
                     egui::DragValue::new(&mut self.out_bitrate)
                         .fixed_decimals(0)
                         .speed(1000.0),
                 );
-                ui.end_row();
-            });
-
-        ui.separator();
-
-        egui::Grid::new("output_settings")
-            .num_columns(2)
-            .striped(true)
-            .show(ui, |ui| {
-                ui.heading("Output settings");
                 ui.end_row();
 
                 ui.label("Output Directory");
