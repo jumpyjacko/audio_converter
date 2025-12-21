@@ -62,7 +62,7 @@ impl AudioFile {
         });
     }
 
-    pub fn from_directory(path: PathBuf) -> Result<Vec<Self>, AudioFileError> {
+    pub fn from_directory(path: &PathBuf) -> Result<Vec<Self>, AudioFileError> {
         if !path.is_dir() {
             return Err(AudioFileError::NotADirectory);
         }

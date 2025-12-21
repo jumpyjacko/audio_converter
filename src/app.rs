@@ -152,8 +152,18 @@ impl AudioConverterApp {
             if !i.raw.dropped_files.is_empty() {
                 // println!("dropped files");
                 for file in &i.raw.dropped_files {
-                    self.files
-                        .push(AudioFile::new(file.clone().path.unwrap()).unwrap()); // TODO: error handle
+                    if let Some(path) = &file.path {
+                        if path.is_dir() {
+                            let mut files = match AudioFile::from_directory(path) {
+                                Ok(f) => f,
+                                Err(_) => continue, // TODO: maybe consider actually error handling
+                            };
+                            self.files.append(&mut files);
+                        } else {
+                            self.files
+                                .push(AudioFile::new(file.clone().path.unwrap()).unwrap()); // TODO: error handle
+                        }
+                    }
                 }
             }
         });
@@ -389,11 +399,11 @@ impl AudioConverterApp {
         let file = self.files.get(self.table_selection.unwrap()).unwrap();
 
         egui::Window::new("File information")
-            .movable(true)
             .min_width(300.0)
             .max_width(300.0)
             .anchor(Align2::RIGHT_BOTTOM, egui::vec2(-10.0, -10.0))
             .resizable(false)
+            .movable(false)
             .default_open(false)
             .show(ctx, |ui| {
                 // TODO: maybe not clone
@@ -514,7 +524,7 @@ impl eframe::App for AudioConverterApp {
                     && let Some(paths) = rfd::FileDialog::new()
                         .pick_folders()
                 {
-                    for directory in paths {
+                    for directory in &paths {
                         let mut files = match AudioFile::from_directory(directory) {
                             Ok(f) => f,
                             Err(_) => continue, // TODO: maybe consider actually error handling
