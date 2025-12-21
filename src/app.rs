@@ -1,7 +1,8 @@
-use std::sync::mpsc;
 use egui::{
-    Vec2, epaint::text::{FontInsert, InsertFontFamily}
+    Vec2,
+    epaint::text::{FontInsert, InsertFontFamily},
 };
+use std::sync::mpsc;
 
 use crate::models::audio_file::{AlbumArtError, AudioFile, get_image_hash};
 
@@ -32,6 +33,7 @@ pub struct AudioConverterApp {
     table_selection: Option<usize>,
 
     // Settings
+    run_concurrent_task_count: usize,
     out_format: FileFormat,
     out_bitrate: u64,
     out_directory: String,
@@ -48,6 +50,7 @@ impl Default for AudioConverterApp {
 
             table_selection: None,
 
+            run_concurrent_task_count: 2,
             out_format: FileFormat::OPUS,
             out_bitrate: 128000,
             out_directory: "./".to_string(),
@@ -228,6 +231,25 @@ impl AudioConverterApp {
     }
 
     fn settings_list(&mut self, ui: &mut egui::Ui) {
+        egui::Grid::new("runtime_settings")
+            .num_columns(2)
+            .striped(true)
+            .show(ui, |ui| {
+                ui.heading("Runtime Settings");
+                ui.end_row();
+
+                ui.label("Concurrent tasks");
+                ui.add(
+                    egui::DragValue::new(&mut self.run_concurrent_task_count)
+                        .fixed_decimals(0)
+                        .speed(1.0)
+                        .range(1..=10),
+                );
+                ui.end_row();
+            });
+
+        ui.separator();
+
         egui::Grid::new("format_settings")
             .num_columns(2)
             .striped(true)
@@ -252,7 +274,11 @@ impl AudioConverterApp {
                 ui.end_row();
 
                 ui.label("Bitrate");
-                ui.add(egui::DragValue::new(&mut self.out_bitrate).speed(1000.0));
+                ui.add(
+                    egui::DragValue::new(&mut self.out_bitrate)
+                        .fixed_decimals(0)
+                        .speed(1000.0),
+                );
                 ui.end_row();
             });
 
