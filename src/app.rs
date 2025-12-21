@@ -7,11 +7,21 @@ use std::sync::mpsc;
 use crate::models::audio_file::{AlbumArtError, AudioFile, get_image_hash};
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq, Eq)]
-enum FileFormat {
+enum AudioCodec {
     FLAC,
     MP3,
     AAC,
     OPUS,
+    VORBIS,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq, Eq)]
+enum AudioContainer {
+    FLAC,
+    MP3,
+    M4A,
+    OPUS,
+    OGG,
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -34,7 +44,8 @@ pub struct AudioConverterApp {
 
     // Settings
     run_concurrent_task_count: usize,
-    out_format: FileFormat,
+    out_codec: AudioCodec,
+    out_container: AudioContainer,
     out_bitrate: u64,
     out_directory: String,
 }
@@ -51,7 +62,8 @@ impl Default for AudioConverterApp {
             table_selection: None,
 
             run_concurrent_task_count: 2,
-            out_format: FileFormat::OPUS,
+            out_codec: AudioCodec::OPUS,
+            out_container: AudioContainer::OGG,
             out_bitrate: 128000,
             out_directory: "./".to_string(),
         }
@@ -259,21 +271,100 @@ impl AudioConverterApp {
                 ui.end_row();
 
                 ui.label("Audio codec");
-                egui::ComboBox::from_id_salt("output_format_combobox")
-                    .selected_text(match self.out_format {
-                        FileFormat::FLAC => ".flac",
-                        FileFormat::MP3 => ".mp3",
-                        FileFormat::AAC => ".aac",
-                        FileFormat::OPUS => ".opus",
+                egui::ComboBox::from_id_salt("output_codec_combobox")
+                    .selected_text(match self.out_codec {
+                        AudioCodec::FLAC => "FLAC",
+                        AudioCodec::MP3 => "MP3",
+                        AudioCodec::AAC => "AAC",
+                        AudioCodec::OPUS => "OPUS",
+                        AudioCodec::VORBIS => "VORBIS",
                     })
                     .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut self.out_format, FileFormat::FLAC, ".flac");
-                        ui.selectable_value(&mut self.out_format, FileFormat::MP3, ".mp3");
-                        ui.selectable_value(&mut self.out_format, FileFormat::AAC, ".aac");
-                        ui.selectable_value(&mut self.out_format, FileFormat::OPUS, ".opus");
+                        if ui
+                            .selectable_value(&mut self.out_codec, AudioCodec::FLAC, "FLAC")
+                            .clicked()
+                        {
+                            self.out_container = AudioContainer::FLAC;
+                        }
+                        if ui
+                            .selectable_value(&mut self.out_codec, AudioCodec::MP3, "MP3")
+                            .clicked()
+                        {
+                            self.out_container = AudioContainer::MP3;
+                        }
+                        if ui
+                            .selectable_value(&mut self.out_codec, AudioCodec::AAC, "AAC")
+                            .clicked()
+                        {
+                            self.out_container = AudioContainer::M4A;
+                        }
+                        if ui
+                            .selectable_value(&mut self.out_codec, AudioCodec::OPUS, "OPUS")
+                            .clicked()
+                        {
+                            self.out_container = AudioContainer::OGG;
+                        }
+                        if ui
+                            .selectable_value(&mut self.out_codec, AudioCodec::VORBIS, "VORBIS")
+                            .clicked()
+                        {
+                            self.out_container = AudioContainer::OGG;
+                        };
                     });
                 ui.end_row();
 
+                ui.label("Audio container");
+                egui::ComboBox::from_id_salt("output_container_combobox")
+                    .selected_text(match self.out_container {
+                        AudioContainer::FLAC => ".flac",
+                        AudioContainer::MP3 => ".mp3",
+                        AudioContainer::M4A => ".m4a",
+                        AudioContainer::OGG => ".ogg",
+                        AudioContainer::OPUS => ".opus",
+                    })
+                    .show_ui(ui, |ui| match self.out_codec {
+                        AudioCodec::FLAC => {
+                            ui.selectable_value(
+                                &mut self.out_container,
+                                AudioContainer::FLAC,
+                                ".flac",
+                            );
+                        }
+                        AudioCodec::MP3 => {
+                            ui.selectable_value(
+                                &mut self.out_container,
+                                AudioContainer::MP3,
+                                ".mp3",
+                            );
+                        }
+                        AudioCodec::AAC => {
+                            ui.selectable_value(
+                                &mut self.out_container,
+                                AudioContainer::M4A,
+                                ".m4a",
+                            );
+                        }
+                        AudioCodec::OPUS => {
+                            ui.selectable_value(
+                                &mut self.out_container,
+                                AudioContainer::OPUS,
+                                ".opus",
+                            );
+                            ui.selectable_value(
+                                &mut self.out_container,
+                                AudioContainer::OGG,
+                                ".ogg",
+                            );
+                        }
+                        AudioCodec::VORBIS => {
+                            ui.selectable_value(
+                                &mut self.out_container,
+                                AudioContainer::OGG,
+                                ".ogg",
+                            );
+                        }
+                    });
+                ui.end_row();
                 ui.label("Bitrate");
                 ui.add(
                     egui::DragValue::new(&mut self.out_bitrate)
