@@ -4,7 +4,7 @@ use egui::{
 };
 use std::sync::mpsc;
 
-use crate::models::audio_file::{AlbumArtError, AudioCodec, AudioContainer, AudioFile, get_image_hash};
+use crate::{ffmpeg, models::audio_file::{AlbumArtError, AudioCodec, AudioContainer, AudioFile, get_image_hash}};
 
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
@@ -388,7 +388,9 @@ impl AudioConverterApp {
 
         ui.separator();
 
-        if ui.button("Convert!").clicked() {}
+        if ui.button("Convert!").clicked() {
+            ffmpeg::convert_file(self.files.first().unwrap(), &self); // testing code
+        }
     }
 
     fn file_info_popup(&mut self, ctx: &egui::Context) {

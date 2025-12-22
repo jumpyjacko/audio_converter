@@ -2,6 +2,7 @@
 
 mod app;
 mod models;
+mod ffmpeg;
 
 use app::AudioConverterApp;
 
