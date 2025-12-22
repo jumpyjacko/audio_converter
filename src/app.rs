@@ -4,25 +4,7 @@ use egui::{
 };
 use std::sync::mpsc;
 
-use crate::models::audio_file::{AlbumArtError, AudioFile, get_image_hash};
-
-#[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq, Eq)]
-enum AudioCodec {
-    FLAC,
-    MP3,
-    AAC,
-    OPUS,
-    VORBIS,
-}
-
-#[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq, Eq)]
-enum AudioContainer {
-    FLAC,
-    MP3,
-    M4A,
-    OPUS,
-    OGG,
-}
+use crate::models::audio_file::{AlbumArtError, AudioCodec, AudioContainer, AudioFile, get_image_hash};
 
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
