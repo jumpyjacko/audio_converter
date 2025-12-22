@@ -385,7 +385,18 @@ impl AudioConverterApp {
                 ui.end_row();
 
                 ui.label("Output Directory");
-                ui.text_edit_singleline(&mut self.out_directory);
+                ui.horizontal(|ui| {
+                    if ui
+                        .text_edit_singleline(&mut self.out_directory)
+                        .double_clicked()
+                        || ui.button("🗁").clicked()
+                    {
+                        if let Some(dir) = rfd::FileDialog::new().pick_folder() {
+                            self.out_directory = dir.to_str().unwrap().to_string();
+                        }
+                    }
+                });
+                ui.end_row();
             });
 
         ui.separator();
