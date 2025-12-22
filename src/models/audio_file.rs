@@ -64,8 +64,8 @@ impl AudioFile {
         }
 
         // TODO: support .opus metadata? need to search how kid3 adds metadata to a .opus file lol
-        let ff_ctx = format::input(&path).expect("Invalid path provided to FFmpeg");
-        let metadata = ff_ctx.metadata();
+        let input_ctx = format::input(&path).expect("Invalid path provided to FFmpeg");
+        let metadata = input_ctx.metadata();
         let artist: Option<String> = metadata.get("ARTIST").map(|s| s.to_string()); // HACK: bruh
         let album: Option<String> = metadata.get("ALBUM").map(|s| s.to_string()); // HACK: bruh
         let title: Option<String> = metadata.get("TITLE").map(|s| s.to_string()); // HACK: bruh
@@ -104,9 +104,9 @@ impl AudioFile {
     }
 
     pub fn ff_get_album_art(&self) -> Result<Option<Vec<u8>>, ffmpeg_next::Error> {
-        let mut ff_ctx = format::input(&self.path)?;
+        let mut input_ctx = format::input(&self.path)?;
 
-        let stream = match ff_ctx.streams().find(|s| {
+        let stream = match input_ctx.streams().find(|s| {
             s.parameters().medium() == ffmpeg_next::media::Type::Video
                 && s.disposition()
                     .contains(ffmpeg_next::format::stream::Disposition::ATTACHED_PIC)
@@ -117,7 +117,7 @@ impl AudioFile {
 
         let stream_index = stream.index();
 
-        for (s, packet) in ff_ctx.packets() {
+        for (s, packet) in input_ctx.packets() {
             if s.index() == stream_index {
                 return Ok(Some(packet.data().unwrap().to_vec()));
             }
