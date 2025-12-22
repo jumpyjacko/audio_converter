@@ -5,11 +5,12 @@ edition = "2024"
 
 [dependencies]
 egui = "0.33.0"
-eframe = { version = "0.33.0", features = ["default"]}
+eframe = { version = "0.33.0", default-features = false, features = ["accesskit", "default_fonts", "glow", "persistence", "wayland", "x11"] }
 egui_extras = { version = "0.33.0", features = ["default", "image"] }
+ron = { version = "0.12" }
 
 env_logger = { version = "0.11.8", features = ["auto-color", "humantime"] }
-serde = { version = "1.0.219", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
 rfd = "=0.16.0"
 
 ffmpeg-next = "8.0.0"

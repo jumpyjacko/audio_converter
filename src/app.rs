@@ -40,6 +40,7 @@ pub struct AudioConverterApp {
     prev_album_art_path: Option<std::path::PathBuf>,
 
     // Interaction
+    #[serde(skip)]
     table_selection: Option<usize>,
 
     // Settings
@@ -108,7 +109,11 @@ impl AudioConverterApp {
             }],
         ));
 
-        Default::default()
+        if let Some(storage) = cc.storage {
+            eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default()
+        } else {
+            Default::default()
+        }
     }
 
     fn preview_dropped_files(&mut self, ctx: &egui::Context) {
@@ -496,6 +501,10 @@ impl AudioConverterApp {
 }
 
 impl eframe::App for AudioConverterApp {
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        eframe::set_value(storage, eframe::APP_KEY, self);
+    }
+
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::TopBottomPanel::top("header").show(ctx, |ui| {
             ui.heading("Batch Audio File Converter");
