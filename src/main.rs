@@ -2,6 +2,7 @@
 
 mod app;
 mod models;
+mod transcode;
 
 use app::AudioConverterApp;
 

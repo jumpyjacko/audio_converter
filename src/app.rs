@@ -4,7 +4,7 @@ use egui::{
 };
 use std::sync::mpsc;
 
-use crate::models::audio_file::{AlbumArtError, AudioCodec, AudioContainer, AudioFile, get_image_hash};
+use crate::{transcode, models::audio_file::{AlbumArtError, AudioCodec, AudioContainer, AudioFile, get_image_hash}};
 
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
@@ -26,11 +26,11 @@ pub struct AudioConverterApp {
     table_selection: Option<usize>,
 
     // Settings
-    run_concurrent_task_count: usize,
-    out_codec: AudioCodec,
-    out_container: AudioContainer,
-    out_bitrate: u64,
-    out_directory: String,
+    pub run_concurrent_task_count: usize,
+    pub out_codec: AudioCodec,
+    pub out_container: AudioContainer,
+    pub out_bitrate: usize,
+    pub out_directory: String,
 }
 
 impl Default for AudioConverterApp {
@@ -388,7 +388,9 @@ impl AudioConverterApp {
 
         ui.separator();
 
-        if ui.button("Convert!").clicked() {}
+        if ui.button("Convert!").clicked() {
+            let _ = transcode::convert_file(self.files.first().unwrap(), &self); // testing code
+        }
     }
 
     fn file_info_popup(&mut self, ctx: &egui::Context) {
