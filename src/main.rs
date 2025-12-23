@@ -2,7 +2,7 @@
 
 mod app;
 mod models;
-mod ffmpeg;
+mod transcode;
 
 use app::AudioConverterApp;
 
