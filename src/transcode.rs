@@ -32,15 +32,17 @@ fn filter(
     filter.add(&filter::find("abuffer").unwrap(), "in", &in_args)?;
     filter.add(&filter::find("abuffersink").unwrap(), "out", "")?;
 
-    let filter_spec = match decoder.rate() == encoder.rate() {
-        true => "anull",
-        false => &format!("aresample={}", encoder.rate()),
-    };
+    let filter_spec = format!(
+        "aresample={},aformat=sample_fmts={}:channel_layouts={}",
+        encoder.rate(),
+        encoder.format().name(),
+        encoder.channel_layout().bits(),
+    );
 
     filter
         .output("in", 0)?
         .input("out", 0)?
-        .parse(filter_spec)?;
+        .parse(&filter_spec)?;
     filter.validate()?;
 
     println!("{}", filter.dump());
@@ -223,7 +225,6 @@ pub fn convert_file(
     octx.set_metadata(ictx.metadata().to_owned());
     octx.write_header().unwrap();
 
-    // TODO: transcode audio stream
     // TODO: copy mjpeg or png as base64 into vorbis metadata? works for all containers?
     for (stream, mut packet) in ictx.packets() {
         let i = stream.index();
