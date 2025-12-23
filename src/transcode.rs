@@ -1,9 +1,8 @@
-use ffmpeg_next::{codec, encoder, filter, format, frame, media};
+use ffmpeg_next::{codec, filter, format, frame, media};
 
 use crate::{
     app::AudioConverterApp,
     models::audio_file::{self, AudioFile},
-    transcode,
 };
 
 // Transcoding code almost word-for-word copied from ffmpeg-next/examples/transcode-audio.rs
@@ -33,20 +32,15 @@ fn filter(
     filter.add(&filter::find("abuffer").unwrap(), "in", &in_args)?;
     filter.add(&filter::find("abuffersink").unwrap(), "out", "")?;
 
-    // {
-    //     let mut out = filter.get("out").unwrap();
-    //
-    //     out.set_sample_format(encoder.format());
-    //     out.set_channel_layout(encoder.channel_layout());
-    //     out.set_sample_rate(encoder.rate());
-    // }
-
     let filter_spec = match decoder.rate() == encoder.rate() {
         true => "anull",
         false => &format!("aresample={}", encoder.rate()),
     };
 
-    filter.output("in", 0)?.input("out", 0)?.parse(filter_spec)?;
+    filter
+        .output("in", 0)?
+        .input("out", 0)?
+        .parse(filter_spec)?;
     filter.validate()?;
 
     println!("{}", filter.dump());
@@ -127,7 +121,7 @@ fn transcoder(
 
     let encoder = encoder.open_as(codec)?;
     output.set_parameters(&encoder);
-    
+
     let filter = filter(&decoder, &encoder)?;
 
     let in_time_base = decoder.time_base();
@@ -226,54 +220,20 @@ pub fn convert_file(
     let mut octx = format::output(&output_path)?;
     let mut transcoder = transcoder(&mut ictx, &mut octx, settings).unwrap();
 
-    // code from ffmpeg_next/examples/remux.rs
-    // let mut stream_mapping = vec![0; ictx.nb_streams() as _];
-    // let mut output_stream_index = 0;
-    // for (i, input_stream) in ictx.streams().enumerate() {
-    //     let ist_medium = input_stream.parameters().medium();
-    //     if ist_medium != media::Type::Audio
-    //         && ist_medium != media::Type::Video
-    //         && ist_medium != media::Type::Subtitle
-    //     {
-    //         stream_mapping[i] = -1;
-    //         continue;
-    //     }
-    //     if input_stream.index() == transcoder.stream {
-    //         continue;
-    //     }
-    //
-    //     stream_mapping[i] = output_stream_index;
-    //     output_stream_index += 1;
-    //
-    //     let mut output_stream = octx.add_stream(encoder::find(codec::Id::None)).unwrap();
-    //     output_stream.set_parameters(input_stream.parameters());
-    //
-    //     unsafe {
-    //         (*output_stream.parameters().as_mut_ptr()).codec_tag = 0;
-    //     }
-    // }
-
     octx.set_metadata(ictx.metadata().to_owned());
     octx.write_header().unwrap();
 
-    // TODO: transcode audio stream, copy mjpeg (or png???) / video stream to output
+    // TODO: transcode audio stream
+    // TODO: copy mjpeg or png as base64 into vorbis metadata? works for all containers?
     for (stream, mut packet) in ictx.packets() {
-        if stream.index() == transcoder.stream {
+        let i = stream.index();
+
+        if i == transcoder.stream {
             packet.rescale_ts(stream.time_base(), transcoder.in_time_base);
             transcoder.send_packet_to_decoder(&packet);
             transcoder.receive_and_process_decoded_frames(&mut octx);
+            continue;
         }
-        // else {
-        //     // code from ffmpeg_next/examples/remux.rs
-        //     let i = stream.index();
-        //     let output_stream_index = stream_mapping[i];
-        //     if output_stream_index < 0 {
-        //         continue;
-        //     }
-        //     packet.set_position(-1);
-        //     packet.set_stream(output_stream_index as _);
-        //     packet.write_interleaved(&mut octx).unwrap();
-        // }
     }
 
     transcoder.send_eof_to_decoder();
