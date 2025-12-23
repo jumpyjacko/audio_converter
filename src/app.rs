@@ -4,11 +4,11 @@ use egui::{
 };
 use std::sync::mpsc;
 
-use crate::{transcode, models::audio_file::{AlbumArtError, AudioCodec, AudioContainer, AudioFile, get_image_hash}};
+use crate::{models::audio_file::{AlbumArtError, AudioCodec, AudioContainer, AudioFile, get_image_hash}, tasks_manager::TasksManager, transcode};
 
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
-pub struct AudioConverterApp {
+pub struct AudioConverterApp<'a> {
     // State
     #[serde(skip)]
     files: Vec<AudioFile>,
@@ -20,6 +20,8 @@ pub struct AudioConverterApp {
     album_art: Option<egui::TextureHandle>,
     #[serde(skip)]
     prev_album_art_path: Option<std::path::PathBuf>,
+    #[serde(skip)]
+    tasks_manager: TasksManager<'a>,
 
     // Interaction
     #[serde(skip)]
@@ -33,7 +35,7 @@ pub struct AudioConverterApp {
     pub out_directory: String,
 }
 
-impl Default for AudioConverterApp {
+impl Default for AudioConverterApp<'_> {
     fn default() -> Self {
         Self {
             files: Vec::new(),
@@ -41,6 +43,7 @@ impl Default for AudioConverterApp {
             album_art_hash: None,
             album_art: None,
             prev_album_art_path: None,
+            tasks_manager: TasksManager::new(),
 
             table_selection: None,
 
@@ -58,7 +61,7 @@ const NO_ARTIST: &str = "[no artist]";
 const NO_ALBUM: &str = "";
 const NO_TITLE: &str = "Untitled";
 
-impl AudioConverterApp {
+impl AudioConverterApp<'_> {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         cc.egui_ctx.add_font(FontInsert::new(
             "Noto-Sans-CJK_SC",
@@ -484,7 +487,7 @@ impl AudioConverterApp {
     }
 }
 
-impl eframe::App for AudioConverterApp {
+impl eframe::App for AudioConverterApp<'_> {
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, eframe::APP_KEY, self);
     }
