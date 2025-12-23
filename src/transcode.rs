@@ -1,15 +1,70 @@
-use ffmpeg_next::{codec, format, media};
+use ffmpeg_next::{codec, encoder, filter, format, frame, media};
 
 use crate::{
     app::AudioConverterApp,
     models::audio_file::{self, AudioFile},
+    transcode,
 };
 
 // Transcoding code almost word-for-word copied from ffmpeg-next/examples/transcode-audio.rs
 struct Transcoder {
     stream: usize,
+    filter: filter::Graph,
     decoder: codec::decoder::Audio,
     encoder: codec::encoder::Audio,
+    in_time_base: ffmpeg_next::Rational,
+    out_time_base: ffmpeg_next::Rational,
+}
+
+fn filter(
+    decoder: &codec::decoder::Audio,
+    encoder: &codec::encoder::Audio,
+) -> Result<filter::Graph, ffmpeg_next::Error> {
+    let mut filter = filter::Graph::new();
+
+    let in_args = format!(
+        "time_base={}:sample_rate={}:sample_fmt={}:channel_layout=0x{:x}",
+        decoder.time_base(),
+        decoder.rate(),
+        decoder.format().name(),
+        decoder.channel_layout().bits()
+    );
+
+    filter.add(&filter::find("abuffer").unwrap(), "in", &in_args)?;
+    filter.add(&filter::find("abuffersink").unwrap(), "out", "")?;
+
+    // {
+    //     let mut out = filter.get("out").unwrap();
+    //
+    //     out.set_sample_format(encoder.format());
+    //     out.set_channel_layout(encoder.channel_layout());
+    //     out.set_sample_rate(encoder.rate());
+    // }
+
+    let filter_spec = match decoder.rate() == encoder.rate() {
+        true => "anull",
+        false => &format!("aresample={}", encoder.rate()),
+    };
+
+    filter.output("in", 0)?.input("out", 0)?.parse(filter_spec)?;
+    filter.validate()?;
+
+    println!("{}", filter.dump());
+
+    if let Some(codec) = encoder.codec() {
+        if !codec
+            .capabilities()
+            .contains(ffmpeg_next::codec::capabilities::Capabilities::VARIABLE_FRAME_SIZE)
+        {
+            filter
+                .get("out")
+                .unwrap()
+                .sink()
+                .set_frame_size(encoder.frame_size());
+        }
+    }
+
+    Ok(filter)
 }
 
 fn transcoder(
@@ -32,6 +87,10 @@ fn transcoder(
     })
     .ok_or(ffmpeg_next::Error::EncoderNotFound)?
     .audio()?;
+    let global = octx
+        .format()
+        .flags()
+        .contains(ffmpeg_next::format::flag::Flags::GLOBAL_HEADER);
     decoder.set_parameters(input.parameters())?;
 
     let mut output = octx.add_stream(codec)?;
@@ -43,7 +102,15 @@ fn transcoder(
         .map(|cls| cls.best(decoder.channel_layout().channels()))
         .unwrap_or(ffmpeg_next::channel_layout::ChannelLayout::STEREO);
 
-    encoder.set_rate(decoder.rate() as i32);
+    if global {
+        encoder.set_flags(ffmpeg_next::codec::flag::Flags::GLOBAL_HEADER);
+    }
+
+    if settings.out_codec == audio_file::AudioCodec::OPUS {
+        encoder.set_rate(48000);
+    } else {
+        encoder.set_rate(decoder.rate() as i32);
+    }
     encoder.set_channel_layout(channel_layout);
     encoder.set_format(
         codec
@@ -60,12 +127,80 @@ fn transcoder(
 
     let encoder = encoder.open_as(codec)?;
     output.set_parameters(&encoder);
+    
+    let filter = filter(&decoder, &encoder)?;
+
+    let in_time_base = decoder.time_base();
+    let out_time_base = output.time_base();
 
     Ok(Transcoder {
         stream: input.index(),
+        filter,
         decoder,
         encoder,
+        in_time_base,
+        out_time_base,
     })
+}
+
+impl Transcoder {
+    fn send_frame_to_encoder(&mut self, frame: &ffmpeg_next::Frame) {
+        self.encoder.send_frame(frame).unwrap();
+    }
+
+    fn send_eof_to_encoder(&mut self) {
+        self.encoder.send_eof().unwrap();
+    }
+
+    fn receive_and_process_encoded_packets(&mut self, octx: &mut format::context::Output) {
+        let mut encoded = ffmpeg_next::Packet::empty();
+        while self.encoder.receive_packet(&mut encoded).is_ok() {
+            encoded.set_stream(0);
+            encoded.rescale_ts(self.in_time_base, self.out_time_base);
+            encoded.write_interleaved(octx).unwrap();
+        }
+    }
+
+    fn add_frame_to_filter(&mut self, frame: &ffmpeg_next::Frame) {
+        self.filter.get("in").unwrap().source().add(frame).unwrap();
+    }
+
+    fn flush_filter(&mut self) {
+        self.filter.get("in").unwrap().source().flush().unwrap();
+    }
+
+    fn get_and_process_filtered_frames(&mut self, octx: &mut format::context::Output) {
+        let mut filtered = frame::Audio::empty();
+        while self
+            .filter
+            .get("out")
+            .unwrap()
+            .sink()
+            .frame(&mut filtered)
+            .is_ok()
+        {
+            self.send_frame_to_encoder(&filtered);
+            self.receive_and_process_encoded_packets(octx);
+        }
+    }
+
+    fn send_packet_to_decoder(&mut self, packet: &ffmpeg_next::Packet) {
+        self.decoder.send_packet(packet).unwrap();
+    }
+
+    fn send_eof_to_decoder(&mut self) {
+        self.decoder.send_eof().unwrap();
+    }
+
+    fn receive_and_process_decoded_frames(&mut self, octx: &mut format::context::Output) {
+        let mut decoded = frame::Audio::empty();
+        while self.decoder.receive_frame(&mut decoded).is_ok() {
+            let timestamp = decoded.timestamp();
+            decoded.set_pts(timestamp);
+            self.add_frame_to_filter(&decoded);
+            self.get_and_process_filtered_frames(octx);
+        }
+    }
 }
 
 pub fn convert_file(
@@ -79,16 +214,78 @@ pub fn convert_file(
         output_path += file.title.as_ref().unwrap();
     }
 
-    // input file
-    let mut ictx: format::context::Input = format::input(&file.path)?;
+    output_path += match settings.out_container {
+        audio_file::AudioContainer::FLAC => ".flac",
+        audio_file::AudioContainer::MP3 => ".mp3",
+        audio_file::AudioContainer::M4A => ".m4a",
+        audio_file::AudioContainer::OGG => ".ogg",
+        audio_file::AudioContainer::OPUS => ".opus",
+    };
+
+    let mut ictx = format::input(&file.path)?;
     let mut octx = format::output(&output_path)?;
-    let transcoder = transcoder(&mut ictx, &mut octx, settings).unwrap();
+    let mut transcoder = transcoder(&mut ictx, &mut octx, settings).unwrap();
+
+    // code from ffmpeg_next/examples/remux.rs
+    // let mut stream_mapping = vec![0; ictx.nb_streams() as _];
+    // let mut output_stream_index = 0;
+    // for (i, input_stream) in ictx.streams().enumerate() {
+    //     let ist_medium = input_stream.parameters().medium();
+    //     if ist_medium != media::Type::Audio
+    //         && ist_medium != media::Type::Video
+    //         && ist_medium != media::Type::Subtitle
+    //     {
+    //         stream_mapping[i] = -1;
+    //         continue;
+    //     }
+    //     if input_stream.index() == transcoder.stream {
+    //         continue;
+    //     }
+    //
+    //     stream_mapping[i] = output_stream_index;
+    //     output_stream_index += 1;
+    //
+    //     let mut output_stream = octx.add_stream(encoder::find(codec::Id::None)).unwrap();
+    //     output_stream.set_parameters(input_stream.parameters());
+    //
+    //     unsafe {
+    //         (*output_stream.parameters().as_mut_ptr()).codec_tag = 0;
+    //     }
+    // }
 
     octx.set_metadata(ictx.metadata().to_owned());
     octx.write_header().unwrap();
 
     // TODO: transcode audio stream, copy mjpeg (or png???) / video stream to output
-    for (stream, mut packet) in ictx.packets() {}
+    for (stream, mut packet) in ictx.packets() {
+        if stream.index() == transcoder.stream {
+            packet.rescale_ts(stream.time_base(), transcoder.in_time_base);
+            transcoder.send_packet_to_decoder(&packet);
+            transcoder.receive_and_process_decoded_frames(&mut octx);
+        }
+        // else {
+        //     // code from ffmpeg_next/examples/remux.rs
+        //     let i = stream.index();
+        //     let output_stream_index = stream_mapping[i];
+        //     if output_stream_index < 0 {
+        //         continue;
+        //     }
+        //     packet.set_position(-1);
+        //     packet.set_stream(output_stream_index as _);
+        //     packet.write_interleaved(&mut octx).unwrap();
+        // }
+    }
+
+    transcoder.send_eof_to_decoder();
+    transcoder.receive_and_process_decoded_frames(&mut octx);
+
+    transcoder.flush_filter();
+    transcoder.get_and_process_filtered_frames(&mut octx);
+
+    transcoder.send_eof_to_encoder();
+    transcoder.receive_and_process_encoded_packets(&mut octx);
+
+    octx.write_trailer().unwrap();
 
     Ok(())
 }
