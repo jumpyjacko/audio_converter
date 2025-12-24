@@ -35,7 +35,7 @@ pub enum AudioContainer {
     OGG,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct AudioFile {
     pub path: PathBuf,
     pub artist: Option<String>,

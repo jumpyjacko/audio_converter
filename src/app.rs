@@ -8,7 +8,7 @@ use crate::{models::audio_file::{AlbumArtError, AudioCodec, AudioContainer, Audi
 
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
-pub struct AudioConverterApp<'a> {
+pub struct AudioConverterApp {
     // State
     #[serde(skip)]
     files: Vec<AudioFile>,
@@ -21,7 +21,7 @@ pub struct AudioConverterApp<'a> {
     #[serde(skip)]
     prev_album_art_path: Option<std::path::PathBuf>,
     #[serde(skip)]
-    tasks_manager: TasksManager<'a>,
+    tasks_manager: TasksManager,
 
     // Interaction
     #[serde(skip)]
@@ -35,7 +35,7 @@ pub struct AudioConverterApp<'a> {
     pub out_directory: String,
 }
 
-impl Default for AudioConverterApp<'_> {
+impl Default for AudioConverterApp {
     fn default() -> Self {
         Self {
             files: Vec::new(),
@@ -61,7 +61,7 @@ const NO_ARTIST: &str = "[no artist]";
 const NO_ALBUM: &str = "";
 const NO_TITLE: &str = "Untitled";
 
-impl AudioConverterApp<'_> {
+impl AudioConverterApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         cc.egui_ctx.add_font(FontInsert::new(
             "Noto-Sans-CJK_SC",
@@ -392,7 +392,10 @@ impl AudioConverterApp<'_> {
         ui.separator();
 
         if ui.button("Convert!").clicked() {
-            let _ = transcode::convert_file(self.files.first().unwrap(), &self); // testing code
+            // let _ = transcode::convert_file(self.files.first().unwrap(), &self); // testing code
+            for file in &self.files {
+                self.tasks_manager.queue_audio_file(file.clone());
+            }
         }
     }
 
@@ -487,7 +490,7 @@ impl AudioConverterApp<'_> {
     }
 }
 
-impl eframe::App for AudioConverterApp<'_> {
+impl eframe::App for AudioConverterApp {
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, eframe::APP_KEY, self);
     }

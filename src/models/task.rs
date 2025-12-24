@@ -1,7 +1,6 @@
-use std::collections::VecDeque;
-
 use crate::models::audio_file::AudioFile;
 
+#[derive(Debug)]
 enum TaskStatus {
     NotStarted,
     Started,
@@ -10,20 +9,19 @@ enum TaskStatus {
     Completed
 }
 
-pub struct Task<'a> {
-    file: &'a AudioFile,
+#[derive(Debug)]
+pub struct Task {
+    file: AudioFile,
     progress: u8,
     status: TaskStatus
 }
 
-pub struct TaskQueue<'a> {
-    queue: VecDeque<Task<'a>>,
-}
-
-impl TaskQueue<'_> {
-    pub fn new() -> Self {
-        return TaskQueue {
-            queue: VecDeque::new(),
+impl Task {
+    pub fn new(file: AudioFile) -> Self {
+        return Task {
+            file,
+            progress: 0,
+            status: TaskStatus::NotStarted,
         }
     }
 }
