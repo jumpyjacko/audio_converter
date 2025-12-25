@@ -201,7 +201,7 @@ impl Transcoder {
 }
 
 pub fn convert_file(
-    file: &AudioFile,
+    file: AudioFile,
     out_codec: &AudioCodec,
     out_bitrate: usize,
     out_directory: &String,

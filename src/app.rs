@@ -9,7 +9,7 @@ use crate::{
     tasks_manager::TasksManager,
 };
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Clone)]
 pub struct Settings {
     pub run_concurrent_task_count: usize,
     pub out_codec: AudioCodec,

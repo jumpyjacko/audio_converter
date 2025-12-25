@@ -1,8 +1,8 @@
 use std::thread;
 
+use crate::app;
 use crate::models::audio_file::AudioFile;
 use crate::transcode;
-use crate::app;
 
 #[derive(Debug, Clone)]
 enum TaskStatus {
@@ -30,12 +30,17 @@ impl Task {
     }
 
     pub fn start_transcode(&mut self, settings: &app::Settings) {
-        let _ = transcode::convert_file(
-            &self.file,
-            &settings.out_codec,
-            settings.out_bitrate,
-            &settings.out_directory,
-            &settings.out_container,
-        );
+        let file = self.file.clone();
+        let settings = settings.clone();
+
+        thread::spawn(move || {
+            let _ = transcode::convert_file(
+                file,
+                &settings.out_codec,
+                settings.out_bitrate,
+                &settings.out_directory,
+                &settings.out_container,
+            );
+        });
     }
 }
