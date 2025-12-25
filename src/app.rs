@@ -399,10 +399,15 @@ impl AudioConverterApp {
                 );
                 ui.end_row();
 
+                let text_width = ui.available_width().min(240.0);
+
                 ui.label("Output Directory");
                 ui.horizontal(|ui| {
                     if ui
-                        .text_edit_singleline(&mut self.settings.out_directory)
+                        .add_sized(
+                            [text_width, ui.text_style_height(&egui::TextStyle::Body)],
+                            egui::TextEdit::singleline(&mut self.settings.out_directory)
+                        )
                         .double_clicked()
                         || ui.button("🗁").clicked()
                     {
