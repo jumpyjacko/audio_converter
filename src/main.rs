@@ -3,6 +3,7 @@
 mod app;
 mod models;
 mod transcode;
+mod tasks_manager;
 
 use app::AudioConverterApp;
 

@@ -17,7 +17,7 @@ pub enum AudioFileError {
     NotADirectory,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq, Eq, Clone)]
 pub enum AudioCodec {
     FLAC,
     MP3,
@@ -26,7 +26,7 @@ pub enum AudioCodec {
     VORBIS,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq, Eq, Clone)]
 pub enum AudioContainer {
     FLAC,
     MP3,
@@ -35,7 +35,7 @@ pub enum AudioContainer {
     OGG,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct AudioFile {
     pub path: PathBuf,
     pub artist: Option<String>,
