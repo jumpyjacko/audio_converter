@@ -411,6 +411,22 @@ impl AudioConverterApp {
         }
     }
 
+    fn task_queue_window(&mut self, ctx: &egui::Context) {
+        use egui::Align2;
+
+        egui::Window::new("Task Queue")
+            .min_height(100.0)
+            .anchor(Align2::LEFT_BOTTOM, egui::vec2(10.0, -10.0))
+            .movable(false)
+            .title_bar(false)
+            .show(ctx, |ui| {
+                ui.heading("Queue");
+                ui.separator();
+
+                // ACTIVE TASKS GO HERE
+            });
+    }
+
     fn file_info_popup(&mut self, ctx: &egui::Context) {
         use egui::Align2;
 
@@ -574,5 +590,7 @@ impl eframe::App for AudioConverterApp {
         }
 
         self.preview_dropped_files(ctx);
+
+        self.task_queue_window(ctx);
     }
 }
