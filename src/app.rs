@@ -35,6 +35,9 @@ pub struct AudioConverterApp {
     #[serde(skip)]
     tasks_manager: TasksManager,
 
+    #[serde(skip)]
+    is_transcoding: bool,
+
     // Interaction
     #[serde(skip)]
     table_selection: Option<usize>,
@@ -51,6 +54,7 @@ impl Default for AudioConverterApp {
             album_art: None,
             prev_album_art_path: None,
             tasks_manager: TasksManager::new(),
+            is_transcoding: false,
 
             table_selection: None,
 
@@ -290,7 +294,11 @@ impl AudioConverterApp {
                     })
                     .show_ui(ui, |ui| {
                         if ui
-                            .selectable_value(&mut self.settings.out_codec, AudioCodec::FLAC, "FLAC")
+                            .selectable_value(
+                                &mut self.settings.out_codec,
+                                AudioCodec::FLAC,
+                                "FLAC",
+                            )
                             .clicked()
                         {
                             self.settings.out_container = AudioContainer::FLAC;
@@ -308,13 +316,21 @@ impl AudioConverterApp {
                             self.settings.out_container = AudioContainer::M4A;
                         }
                         if ui
-                            .selectable_value(&mut self.settings.out_codec, AudioCodec::OPUS, "OPUS")
+                            .selectable_value(
+                                &mut self.settings.out_codec,
+                                AudioCodec::OPUS,
+                                "OPUS",
+                            )
                             .clicked()
                         {
                             self.settings.out_container = AudioContainer::OGG;
                         }
                         if ui
-                            .selectable_value(&mut self.settings.out_codec, AudioCodec::VORBIS, "VORBIS")
+                            .selectable_value(
+                                &mut self.settings.out_codec,
+                                AudioCodec::VORBIS,
+                                "VORBIS",
+                            )
                             .clicked()
                         {
                             self.settings.out_container = AudioContainer::OGG;
@@ -401,13 +417,10 @@ impl AudioConverterApp {
         ui.separator();
 
         if ui.button("Convert!").clicked() {
-            // let _ = transcode::convert_file(self.files.first().unwrap(), &self); // testing code
             for file in &self.files {
                 self.tasks_manager.queue_audio_file(file.clone());
+                self.is_transcoding = true;
             }
-
-            let settings = &self.settings;
-            self.tasks_manager.start_tasks(settings);
         }
     }
 
@@ -415,15 +428,33 @@ impl AudioConverterApp {
         use egui::Align2;
 
         egui::Window::new("Task Queue")
-            .min_height(100.0)
             .anchor(Align2::LEFT_BOTTOM, egui::vec2(10.0, -10.0))
             .movable(false)
             .title_bar(false)
             .show(ctx, |ui| {
-                ui.heading("Queue");
+                ui.horizontal(|ui| {
+                    ui.heading("Queue");
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.spinner();
+                    })
+                });
+                ui.label(format!(
+                    "Tasks remaining: {}",
+                    self.tasks_manager.queue.len() + self.tasks_manager.active_tasks.len()
+                ));
                 ui.separator();
 
                 // ACTIVE TASKS GO HERE
+                for task in &self.tasks_manager.active_tasks {
+                    ui.horizontal(|ui| {
+                        ui.label(format!(
+                            "{} - {} on {}",
+                            task.file.artist.clone().unwrap_or(NO_ARTIST.to_string()),
+                            task.file.title.clone().unwrap_or(NO_TITLE.to_string()),
+                            task.file.album.clone().unwrap_or(NO_ALBUM.to_string())
+                        ));
+                    });
+                }
             });
     }
 
@@ -524,6 +555,9 @@ impl eframe::App for AudioConverterApp {
     }
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.tasks_manager.update(&self.settings);
+        self.is_transcoding = !self.tasks_manager.active_tasks.is_empty();
+
         egui::TopBottomPanel::top("header").show(ctx, |ui| {
             ui.heading("Batch Audio File Converter");
         });
@@ -591,6 +625,8 @@ impl eframe::App for AudioConverterApp {
 
         self.preview_dropped_files(ctx);
 
-        self.task_queue_window(ctx);
+        if self.is_transcoding {
+            self.task_queue_window(ctx);
+        }
     }
 }
