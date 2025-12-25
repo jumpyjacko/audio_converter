@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 
 use crate::models::{audio_file::AudioFile, task::Task};
+use crate::app;
 
 #[derive(Debug)]
 pub struct TasksManager {
@@ -15,5 +16,11 @@ impl TasksManager {
     pub fn queue_audio_file(&mut self, file: AudioFile) {
         let task = Task::new(file);
         self.queue.push_back(task);
+    }
+
+    pub fn start_tasks(&mut self, settings: &app::Settings) {
+        for mut task in self.queue.drain(..) {
+            task.start_transcode(settings);
+        }
     }
 }

@@ -2,7 +2,7 @@ use ffmpeg_next::{codec, filter, format, frame, media};
 
 use crate::{
     app::AudioConverterApp,
-    models::audio_file::{self, AudioFile},
+    models::audio_file::{self, AudioCodec, AudioContainer, AudioFile},
 };
 
 // Transcoding code almost word-for-word copied from ffmpeg-next/examples/transcode-audio.rs
@@ -45,7 +45,7 @@ fn filter(
         .parse(&filter_spec)?;
     filter.validate()?;
 
-    println!("{}", filter.dump());
+    // println!("{}", filter.dump());
 
     if let Some(codec) = encoder.codec() {
         if !codec
@@ -66,7 +66,8 @@ fn filter(
 fn transcoder(
     ictx: &mut format::context::Input,
     octx: &mut format::context::Output,
-    settings: &AudioConverterApp,
+    out_codec: &AudioCodec,
+    out_bitrate: usize,
 ) -> Result<Transcoder, ffmpeg_next::Error> {
     let input = ictx
         .streams()
@@ -74,7 +75,7 @@ fn transcoder(
         .ok_or(ffmpeg_next::Error::StreamNotFound)?;
     let context = codec::context::Context::from_parameters(input.parameters())?;
     let mut decoder = context.decoder().audio()?;
-    let codec = codec::encoder::find(match settings.out_codec {
+    let codec = codec::encoder::find(match out_codec {
         audio_file::AudioCodec::FLAC => codec::Id::FLAC,
         audio_file::AudioCodec::MP3 => codec::Id::MP3,
         audio_file::AudioCodec::AAC => codec::Id::AAC,
@@ -102,7 +103,7 @@ fn transcoder(
         encoder.set_flags(ffmpeg_next::codec::flag::Flags::GLOBAL_HEADER);
     }
 
-    if settings.out_codec == audio_file::AudioCodec::OPUS {
+    if out_codec == &audio_file::AudioCodec::OPUS {
         encoder.set_rate(48000);
     } else {
         encoder.set_rate(decoder.rate() as i32);
@@ -115,7 +116,7 @@ fn transcoder(
             .next()
             .unwrap(),
     );
-    encoder.set_bit_rate(settings.out_bitrate);
+    encoder.set_bit_rate(out_bitrate);
     encoder.set_max_bit_rate(decoder.max_bit_rate());
 
     encoder.set_time_base((1, decoder.rate() as i32));
@@ -201,26 +202,29 @@ impl Transcoder {
 
 pub fn convert_file(
     file: &AudioFile,
-    settings: &AudioConverterApp,
+    out_codec: &AudioCodec,
+    out_bitrate: usize,
+    out_directory: &String,
+    out_container: &AudioContainer,
 ) -> Result<(), ffmpeg_next::Error> {
-    let mut output_path: String = settings.out_directory.clone() + "/";
+    let mut output_path: String = out_directory.to_owned() + "/";
     if let Some(stem) = file.path.file_stem().unwrap().to_str() {
         output_path += stem;
     } else {
         output_path += file.title.as_ref().unwrap();
     }
 
-    output_path += match settings.out_container {
-        audio_file::AudioContainer::FLAC => ".flac",
-        audio_file::AudioContainer::MP3 => ".mp3",
-        audio_file::AudioContainer::M4A => ".m4a",
-        audio_file::AudioContainer::OGG => ".ogg",
-        audio_file::AudioContainer::OPUS => ".opus",
+    output_path += match out_container {
+        AudioContainer::FLAC => ".flac",
+        AudioContainer::MP3 => ".mp3",
+        AudioContainer::M4A => ".m4a",
+        AudioContainer::OGG => ".ogg",
+        AudioContainer::OPUS => ".opus",
     };
 
     let mut ictx = format::input(&file.path)?;
     let mut octx = format::output(&output_path)?;
-    let mut transcoder = transcoder(&mut ictx, &mut octx, settings).unwrap();
+    let mut transcoder = transcoder(&mut ictx, &mut octx, out_codec, out_bitrate).unwrap();
 
     octx.set_metadata(ictx.metadata().to_owned());
     octx.write_header().unwrap();

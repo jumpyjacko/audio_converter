@@ -4,7 +4,19 @@ use egui::{
 };
 use std::sync::mpsc;
 
-use crate::{models::audio_file::{AlbumArtError, AudioCodec, AudioContainer, AudioFile, get_image_hash}, tasks_manager::TasksManager, transcode};
+use crate::{
+    models::audio_file::{AlbumArtError, AudioCodec, AudioContainer, AudioFile, get_image_hash},
+    tasks_manager::TasksManager,
+};
+
+#[derive(serde::Deserialize, serde::Serialize)]
+pub struct Settings {
+    pub run_concurrent_task_count: usize,
+    pub out_codec: AudioCodec,
+    pub out_container: AudioContainer,
+    pub out_bitrate: usize,
+    pub out_directory: String,
+}
 
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
@@ -27,12 +39,7 @@ pub struct AudioConverterApp {
     #[serde(skip)]
     table_selection: Option<usize>,
 
-    // Settings
-    pub run_concurrent_task_count: usize,
-    pub out_codec: AudioCodec,
-    pub out_container: AudioContainer,
-    pub out_bitrate: usize,
-    pub out_directory: String,
+    pub settings: Settings,
 }
 
 impl Default for AudioConverterApp {
@@ -47,11 +54,13 @@ impl Default for AudioConverterApp {
 
             table_selection: None,
 
-            run_concurrent_task_count: 2,
-            out_codec: AudioCodec::OPUS,
-            out_container: AudioContainer::OGG,
-            out_bitrate: 128000,
-            out_directory: "./".to_string(),
+            settings: Settings {
+                run_concurrent_task_count: 2,
+                out_codec: AudioCodec::OPUS,
+                out_container: AudioContainer::OGG,
+                out_bitrate: 128000,
+                out_directory: "./".to_string(),
+            },
         }
     }
 }
@@ -253,7 +262,7 @@ impl AudioConverterApp {
 
                 ui.label("Concurrent tasks");
                 ui.add(
-                    egui::DragValue::new(&mut self.run_concurrent_task_count)
+                    egui::DragValue::new(&mut self.settings.run_concurrent_task_count)
                         .fixed_decimals(0)
                         .speed(1.0)
                         .range(1..=10),
@@ -272,7 +281,7 @@ impl AudioConverterApp {
 
                 ui.label("Audio codec");
                 egui::ComboBox::from_id_salt("output_codec_combobox")
-                    .selected_text(match self.out_codec {
+                    .selected_text(match self.settings.out_codec {
                         AudioCodec::FLAC => "FLAC",
                         AudioCodec::MP3 => "MP3",
                         AudioCodec::AAC => "AAC",
@@ -281,84 +290,84 @@ impl AudioConverterApp {
                     })
                     .show_ui(ui, |ui| {
                         if ui
-                            .selectable_value(&mut self.out_codec, AudioCodec::FLAC, "FLAC")
+                            .selectable_value(&mut self.settings.out_codec, AudioCodec::FLAC, "FLAC")
                             .clicked()
                         {
-                            self.out_container = AudioContainer::FLAC;
+                            self.settings.out_container = AudioContainer::FLAC;
                         }
                         if ui
-                            .selectable_value(&mut self.out_codec, AudioCodec::MP3, "MP3")
+                            .selectable_value(&mut self.settings.out_codec, AudioCodec::MP3, "MP3")
                             .clicked()
                         {
-                            self.out_container = AudioContainer::MP3;
+                            self.settings.out_container = AudioContainer::MP3;
                         }
                         if ui
-                            .selectable_value(&mut self.out_codec, AudioCodec::AAC, "AAC")
+                            .selectable_value(&mut self.settings.out_codec, AudioCodec::AAC, "AAC")
                             .clicked()
                         {
-                            self.out_container = AudioContainer::M4A;
+                            self.settings.out_container = AudioContainer::M4A;
                         }
                         if ui
-                            .selectable_value(&mut self.out_codec, AudioCodec::OPUS, "OPUS")
+                            .selectable_value(&mut self.settings.out_codec, AudioCodec::OPUS, "OPUS")
                             .clicked()
                         {
-                            self.out_container = AudioContainer::OGG;
+                            self.settings.out_container = AudioContainer::OGG;
                         }
                         if ui
-                            .selectable_value(&mut self.out_codec, AudioCodec::VORBIS, "VORBIS")
+                            .selectable_value(&mut self.settings.out_codec, AudioCodec::VORBIS, "VORBIS")
                             .clicked()
                         {
-                            self.out_container = AudioContainer::OGG;
+                            self.settings.out_container = AudioContainer::OGG;
                         };
                     });
                 ui.end_row();
 
                 ui.label("Audio container");
                 egui::ComboBox::from_id_salt("output_container_combobox")
-                    .selected_text(match self.out_container {
+                    .selected_text(match self.settings.out_container {
                         AudioContainer::FLAC => ".flac",
                         AudioContainer::MP3 => ".mp3",
                         AudioContainer::M4A => ".m4a",
                         AudioContainer::OGG => ".ogg",
                         AudioContainer::OPUS => ".opus",
                     })
-                    .show_ui(ui, |ui| match self.out_codec {
+                    .show_ui(ui, |ui| match self.settings.out_codec {
                         AudioCodec::FLAC => {
                             ui.selectable_value(
-                                &mut self.out_container,
+                                &mut self.settings.out_container,
                                 AudioContainer::FLAC,
                                 ".flac",
                             );
                         }
                         AudioCodec::MP3 => {
                             ui.selectable_value(
-                                &mut self.out_container,
+                                &mut self.settings.out_container,
                                 AudioContainer::MP3,
                                 ".mp3",
                             );
                         }
                         AudioCodec::AAC => {
                             ui.selectable_value(
-                                &mut self.out_container,
+                                &mut self.settings.out_container,
                                 AudioContainer::M4A,
                                 ".m4a",
                             );
                         }
                         AudioCodec::OPUS => {
                             ui.selectable_value(
-                                &mut self.out_container,
+                                &mut self.settings.out_container,
                                 AudioContainer::OPUS,
                                 ".opus",
                             );
                             ui.selectable_value(
-                                &mut self.out_container,
+                                &mut self.settings.out_container,
                                 AudioContainer::OGG,
                                 ".ogg",
                             );
                         }
                         AudioCodec::VORBIS => {
                             ui.selectable_value(
-                                &mut self.out_container,
+                                &mut self.settings.out_container,
                                 AudioContainer::OGG,
                                 ".ogg",
                             );
@@ -368,7 +377,7 @@ impl AudioConverterApp {
 
                 ui.label("Bitrate");
                 ui.add(
-                    egui::DragValue::new(&mut self.out_bitrate)
+                    egui::DragValue::new(&mut self.settings.out_bitrate)
                         .fixed_decimals(0)
                         .speed(1000.0),
                 );
@@ -377,12 +386,12 @@ impl AudioConverterApp {
                 ui.label("Output Directory");
                 ui.horizontal(|ui| {
                     if ui
-                        .text_edit_singleline(&mut self.out_directory)
+                        .text_edit_singleline(&mut self.settings.out_directory)
                         .double_clicked()
                         || ui.button("🗁").clicked()
                     {
                         if let Some(dir) = rfd::FileDialog::new().pick_folder() {
-                            self.out_directory = dir.to_str().unwrap().to_string();
+                            self.settings.out_directory = dir.to_str().unwrap().to_string();
                         }
                     }
                 });
@@ -396,6 +405,9 @@ impl AudioConverterApp {
             for file in &self.files {
                 self.tasks_manager.queue_audio_file(file.clone());
             }
+
+            let settings = &self.settings;
+            self.tasks_manager.start_tasks(settings);
         }
     }
 

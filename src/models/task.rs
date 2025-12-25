@@ -1,19 +1,23 @@
-use crate::models::audio_file::AudioFile;
+use std::thread;
 
-#[derive(Debug)]
+use crate::models::audio_file::AudioFile;
+use crate::transcode;
+use crate::app;
+
+#[derive(Debug, Clone)]
 enum TaskStatus {
     NotStarted,
     Started,
     Paused,
     Failed,
-    Completed
+    Completed,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Task {
     file: AudioFile,
     progress: u8,
-    status: TaskStatus
+    status: TaskStatus,
 }
 
 impl Task {
@@ -22,6 +26,16 @@ impl Task {
             file,
             progress: 0,
             status: TaskStatus::NotStarted,
-        }
+        };
+    }
+
+    pub fn start_transcode(&mut self, settings: &app::Settings) {
+        let _ = transcode::convert_file(
+            &self.file,
+            &settings.out_codec,
+            settings.out_bitrate,
+            &settings.out_directory,
+            &settings.out_container,
+        );
     }
 }
