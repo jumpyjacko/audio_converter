@@ -435,6 +435,7 @@ impl AudioConverterApp {
         egui::Window::new("Task Queue")
             .anchor(Align2::LEFT_BOTTOM, egui::vec2(10.0, -10.0))
             .movable(false)
+            .resizable(false)
             .title_bar(false)
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
