@@ -98,7 +98,7 @@ impl Task {
             Ok(TaskStatus::Paused) => false,
             Ok(TaskStatus::Started) => false,
             Err(mpsc::TryRecvError::Empty) => false,
-            Err(mpsc::TryRecvError::Disconnected) => true, // worker died
+            Err(mpsc::TryRecvError::Disconnected) => true,
         }
     }
 }

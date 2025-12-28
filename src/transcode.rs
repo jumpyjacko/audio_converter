@@ -46,8 +46,6 @@ fn filter(
         .parse(&filter_spec)?;
     filter.validate()?;
 
-    // println!("{}", filter.dump());
-
     if let Some(codec) = encoder.codec() {
         if !codec
             .capabilities()

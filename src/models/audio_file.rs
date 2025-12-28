@@ -63,13 +63,12 @@ impl AudioFile {
             return Err(AudioFileError::NotAnAudioFile);
         }
 
-        // TODO: support .opus metadata? need to search how kid3 adds metadata to a .opus file lol
         let input_ctx = format::input(&path).expect("Invalid path provided to FFmpeg");
         let metadata = input_ctx.metadata();
-        let artist: Option<String> = metadata.get("ARTIST").map(|s| s.to_string()); // HACK: bruh
-        let album: Option<String> = metadata.get("ALBUM").map(|s| s.to_string()); // HACK: bruh
-        let title: Option<String> = metadata.get("TITLE").map(|s| s.to_string()); // HACK: bruh
-        let track: Option<String> = metadata.get("track").map(|s| s.to_string()); // HACK: bruh
+        let artist: Option<String> = metadata.get("ARTIST").map(|s| s.to_string());
+        let album: Option<String> = metadata.get("ALBUM").map(|s| s.to_string());
+        let title: Option<String> = metadata.get("TITLE").map(|s| s.to_string());
+        let track: Option<String> = metadata.get("track").map(|s| s.to_string());
 
         return Ok(Self {
             path: path,
@@ -91,7 +90,7 @@ impl AudioFile {
             if let Ok(file) = file {
                 let audio_file = match AudioFile::new(file.path()) {
                     Ok(af) => af,
-                    Err(AudioFileError::NotAnAudioFile) => continue, // NOTE: bc it probably isn't an audio file, we can ignore
+                    Err(AudioFileError::NotAnAudioFile) => continue,
                     Err(_) => panic!("hdwgh?"),
                 };
                 files.push(audio_file);
@@ -131,7 +130,6 @@ impl AudioFile {
         let path = self.path.clone();
 
         thread::spawn(move || {
-            // println!("started getting image");
             let audio_file = AudioFile {
                 path,
                 ..Default::default()
@@ -142,12 +140,10 @@ impl AudioFile {
                 .flatten()
                 .ok_or(AlbumArtError::NotFound);
 
-            // println!("decoding image...");
             let image = decode_image(&result.unwrap())
                 .ok()
                 .ok_or(AlbumArtError::DecodeFailed); // TODO: error handle
 
-            // println!("finished getting image, sending via tx");
             let _ = tx.send(image);
         });
 
@@ -155,7 +151,6 @@ impl AudioFile {
     }
 }
 
-// TODO: this is the culprit, image decode is hella slow
 fn decode_image(bytes: &[u8]) -> Result<egui::ColorImage, image::ImageError> {
     use image::ImageReader;
     use std::io::Cursor;
