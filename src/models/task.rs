@@ -1,7 +1,8 @@
+use std::path::PathBuf;
 use std::sync::mpsc;
 use std::thread;
 
-use crate::app;
+use crate::app::{self, NO_ALBUM, NO_ARTIST};
 use crate::models::audio_file::AudioFile;
 use crate::transcode;
 
@@ -32,12 +33,49 @@ impl Task {
         let _ = tx.send(TaskStatus::Started);
         self.status = Some(rx);
 
+        let out_dir: PathBuf = match settings.out_grouping {
+            app::OutputGrouping::NoGrouping => PathBuf::from(settings.out_directory),
+            app::OutputGrouping::Copy => {
+                let mut out = PathBuf::from(&settings.out_directory);
+                if let Some(parent) = self.file.path.parent() {
+                    if let Some(direct_parent) = parent.file_name().and_then(|f| f.to_str()) {
+                        out.push(&direct_parent);
+                    };
+                }
+
+                out
+            }
+            app::OutputGrouping::ArtistAlbum => {
+                let mut out = PathBuf::from(settings.out_directory);
+                let directory = format!(
+                    "{} - {}",
+                    self.file.artist.as_deref().unwrap_or(NO_ARTIST),
+                    self.file.album.as_deref().unwrap_or(NO_ALBUM)
+                );
+                out.push(directory);
+                out
+            }
+            app::OutputGrouping::Album => {
+                let mut out = PathBuf::from(settings.out_directory);
+                out.push(self.file.album.as_deref().unwrap_or(NO_ALBUM));
+                out
+            }
+            app::OutputGrouping::Artist => {
+                let mut out = PathBuf::from(settings.out_directory);
+                out.push(self.file.artist.as_deref().unwrap_or(NO_ARTIST));
+                out
+            }
+        };
+
+        use std::fs;
+        let _ = fs::create_dir(&out_dir);
+
         thread::spawn(move || {
             match transcode::convert_file(
                 file,
                 &settings.out_codec,
                 settings.out_bitrate,
-                &settings.out_directory,
+                &out_dir,
                 &settings.out_container,
             ) {
                 Ok(_) => {

@@ -1,7 +1,8 @@
+use std::path::Path;
+
 use ffmpeg_next::{codec, filter, format, frame, media};
 
 use crate::{
-    app::AudioConverterApp,
     models::audio_file::{self, AudioCodec, AudioContainer, AudioFile},
 };
 
@@ -204,10 +205,10 @@ pub fn convert_file(
     file: AudioFile,
     out_codec: &AudioCodec,
     out_bitrate: usize,
-    out_directory: &String,
+    out_directory: &Path,
     out_container: &AudioContainer,
 ) -> Result<(), ffmpeg_next::Error> {
-    let mut output_path: String = out_directory.to_owned() + "/";
+    let mut output_path: String = out_directory.to_string_lossy().to_string() + "/";
     if let Some(stem) = file.path.file_stem().unwrap().to_str() {
         output_path += stem;
     } else {

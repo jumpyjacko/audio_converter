@@ -9,6 +9,20 @@ use crate::{
     tasks_manager::TasksManager,
 };
 
+#[derive(serde::Deserialize, serde::Serialize, PartialEq, Clone)]
+pub enum OutputGrouping {
+    NoGrouping,
+    Copy,
+    ArtistAlbum,
+    Album,
+    Artist,
+}
+
+// Empty placeholder texts
+pub const NO_ARTIST: &str = "<no artist>";
+pub const NO_ALBUM: &str = "<no album>";
+pub const NO_TITLE: &str = "<no title>";
+
 #[derive(serde::Deserialize, serde::Serialize, Clone)]
 pub struct Settings {
     pub run_concurrent_task_count: usize,
@@ -16,6 +30,7 @@ pub struct Settings {
     pub out_container: AudioContainer,
     pub out_bitrate: usize,
     pub out_directory: String,
+    pub out_grouping: OutputGrouping,
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -64,15 +79,11 @@ impl Default for AudioConverterApp {
                 out_container: AudioContainer::OGG,
                 out_bitrate: 128000,
                 out_directory: "./".to_string(),
+                out_grouping: OutputGrouping::ArtistAlbum,
             },
         }
     }
 }
-
-// Empty placeholder texts
-const NO_ARTIST: &str = "[no artist]";
-const NO_ALBUM: &str = "";
-const NO_TITLE: &str = "Untitled";
 
 impl AudioConverterApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
@@ -406,7 +417,7 @@ impl AudioConverterApp {
                     if ui
                         .add_sized(
                             [text_width, ui.text_style_height(&egui::TextStyle::Body)],
-                            egui::TextEdit::singleline(&mut self.settings.out_directory)
+                            egui::TextEdit::singleline(&mut self.settings.out_directory),
                         )
                         .double_clicked()
                         || ui.button("🗁").clicked()
@@ -417,6 +428,43 @@ impl AudioConverterApp {
                     }
                 });
                 ui.end_row();
+
+                ui.label("Group by...");
+                egui::ComboBox::from_id_salt("output_grouping_combobox")
+                    .selected_text(match self.settings.out_grouping {
+                        OutputGrouping::NoGrouping => "No Grouping",
+                        OutputGrouping::Copy => "Copy from source",
+                        OutputGrouping::ArtistAlbum => "Artist - Album",
+                        OutputGrouping::Album => "Album",
+                        OutputGrouping::Artist => "Artist",
+                    })
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(
+                            &mut self.settings.out_grouping,
+                            OutputGrouping::NoGrouping,
+                            "No Grouping",
+                        );
+                        ui.selectable_value(
+                            &mut self.settings.out_grouping,
+                            OutputGrouping::Copy,
+                            "Copy from source",
+                        );
+                        ui.selectable_value(
+                            &mut self.settings.out_grouping,
+                            OutputGrouping::ArtistAlbum,
+                            "Artist - Album",
+                        );
+                        ui.selectable_value(
+                            &mut self.settings.out_grouping,
+                            OutputGrouping::Album,
+                            "Album",
+                        );
+                        ui.selectable_value(
+                            &mut self.settings.out_grouping,
+                            OutputGrouping::Artist,
+                            "Artist",
+                        );
+                    });
             });
 
         ui.separator();
