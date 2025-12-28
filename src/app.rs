@@ -429,7 +429,8 @@ impl AudioConverterApp {
                 });
                 ui.end_row();
 
-                ui.label("Group by...");
+                ui.label("Group by...")
+                    .on_hover_text_at_pointer("Group output files in a folder");
                 egui::ComboBox::from_id_salt("output_grouping_combobox")
                     .selected_text(match self.settings.out_grouping {
                         OutputGrouping::NoGrouping => "No Grouping",
@@ -443,28 +444,47 @@ impl AudioConverterApp {
                             &mut self.settings.out_grouping,
                             OutputGrouping::NoGrouping,
                             "No Grouping",
+                        )
+                        .on_hover_text_at_pointer(
+                            "Group output files in a folder:\n - No grouping/folders",
                         );
                         ui.selectable_value(
                             &mut self.settings.out_grouping,
                             OutputGrouping::Copy,
                             "Copy from source",
+                        )
+                        .on_hover_text_at_pointer(
+                            "Group output files in a folder:\n - Parent folder from original files",
                         );
                         ui.selectable_value(
                             &mut self.settings.out_grouping,
                             OutputGrouping::ArtistAlbum,
                             "Artist - Album",
-                        );
+                        )
+                        .on_hover_text_at_pointer({
+                            let artist = self.files.first().and_then(|f| f.artist.as_deref()).unwrap_or("Artist");
+                            let album = self.files.first().and_then(|f| f.album.as_deref()).unwrap_or("Album");
+                            format!("Group output files in a folder:\n - Create a folder name '{artist} - {album}'")
+                        });
                         ui.selectable_value(
                             &mut self.settings.out_grouping,
                             OutputGrouping::Album,
                             "Album",
-                        );
+                        )
+                        .on_hover_text_at_pointer({
+                            let album = self.files.first().and_then(|f| f.album.as_deref()).unwrap_or("Album");
+                            format!("Group output files in a folder:\n - Create a folder name '{album}'")
+                        });
                         ui.selectable_value(
                             &mut self.settings.out_grouping,
                             OutputGrouping::Artist,
                             "Artist",
-                        );
-                    });
+                        ).on_hover_text_at_pointer({
+                            let artist = self.files.first().and_then(|f| f.artist.as_deref()).unwrap_or("Artist");
+                            format!("Group output files in a folder:\n - Create a folder name '{artist}'")
+                        });
+                    }).response.on_hover_text_at_pointer("Group output files in a folder");
+                ui.end_row();
             });
 
         ui.separator();
