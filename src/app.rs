@@ -18,7 +18,6 @@ pub enum OutputGrouping {
     Artist,
 }
 
-// Empty placeholder texts
 pub const NO_ARTIST: &str = "<no artist>";
 pub const NO_ALBUM: &str = "<no album>";
 pub const NO_TITLE: &str = "<no title>";
@@ -33,25 +32,22 @@ pub struct Settings {
     pub out_grouping: OutputGrouping,
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
-#[serde(default)] // if we add new fields, give them default values when deserializing old state
-pub struct AudioConverterApp {
-    // State
-    #[serde(skip)]
+pub struct AppState {
     files: Vec<AudioFile>,
-    #[serde(skip)]
     album_art_rx: Option<mpsc::Receiver<Result<egui::ColorImage, AlbumArtError>>>,
-    #[serde(skip)]
     album_art_hash: Option<u64>,
-    #[serde(skip)]
     album_art: Option<egui::TextureHandle>,
-    #[serde(skip)]
     prev_album_art_path: Option<std::path::PathBuf>,
+
+    is_transcoding: bool,
+}
+#[derive(serde::Deserialize, serde::Serialize)]
+#[serde(default)]
+pub struct AudioConverterApp {
+    #[serde(skip)]
+    app_state: AppState,
     #[serde(skip)]
     tasks_manager: TasksManager,
-
-    #[serde(skip)]
-    is_transcoding: bool,
 
     // Interaction
     #[serde(skip)]
@@ -63,13 +59,15 @@ pub struct AudioConverterApp {
 impl Default for AudioConverterApp {
     fn default() -> Self {
         Self {
-            files: Vec::new(),
-            album_art_rx: None,
-            album_art_hash: None,
-            album_art: None,
-            prev_album_art_path: None,
+            app_state: AppState {
+                files: Vec::new(),
+                album_art_rx: None,
+                album_art_hash: None,
+                album_art: None,
+                prev_album_art_path: None,
+                is_transcoding: false,
+            },
             tasks_manager: TasksManager::new(),
-            is_transcoding: false,
 
             table_selection: None,
 
@@ -77,7 +75,7 @@ impl Default for AudioConverterApp {
                 run_concurrent_task_count: 2,
                 out_codec: AudioCodec::OPUS,
                 out_container: AudioContainer::OGG,
-                out_bitrate: 128000,
+                out_bitrate: 64000,
                 out_directory: "./".to_string(),
                 out_grouping: OutputGrouping::ArtistAlbum,
             },
@@ -159,12 +157,7 @@ impl AudioConverterApp {
         }
 
         ctx.input(|i| {
-            // if !i.raw.hovered_files.is_empty() {
-            //     println!("hovering a file: {}", i.raw.hovered_files.len());
-            // }
-
             if !i.raw.dropped_files.is_empty() {
-                // println!("dropped files");
                 for file in &i.raw.dropped_files {
                     if let Some(path) = &file.path {
                         if path.is_dir() {
@@ -172,9 +165,9 @@ impl AudioConverterApp {
                                 Ok(f) => f,
                                 Err(_) => continue, // TODO: maybe consider actually error handling
                             };
-                            self.files.append(&mut files);
+                            self.app_state.files.append(&mut files);
                         } else {
-                            self.files
+                            self.app_state.files
                                 .push(AudioFile::new(file.clone().path.unwrap()).unwrap()); // TODO: error handle
                         }
                     }
@@ -227,7 +220,7 @@ impl AudioConverterApp {
             .body(|mut body| {
                 let mut clicked_row: Option<usize> = None;
 
-                for file in &self.files {
+                for file in &self.app_state.files {
                     body.row(text_height, |mut row| {
                         row.set_selected(self.table_selection == Some(row.index()));
 
@@ -462,8 +455,9 @@ impl AudioConverterApp {
                             "Artist - Album",
                         )
                         .on_hover_text_at_pointer({
-                            let artist = self.files.first().and_then(|f| f.artist.as_deref()).unwrap_or("Artist");
-                            let album = self.files.first().and_then(|f| f.album.as_deref()).unwrap_or("Album");
+                            let first_file = self.app_state.files.first();
+                            let artist = first_file.and_then(|f| f.artist.as_deref()).unwrap_or("Artist");
+                            let album = first_file.and_then(|f| f.album.as_deref()).unwrap_or("Album");
                             format!("Group output files in a folder:\n - Create a folder name '{artist} - {album}'")
                         });
                         ui.selectable_value(
@@ -472,7 +466,8 @@ impl AudioConverterApp {
                             "Album",
                         )
                         .on_hover_text_at_pointer({
-                            let album = self.files.first().and_then(|f| f.album.as_deref()).unwrap_or("Album");
+                            let first_file = self.app_state.files.first();
+                            let album = first_file.and_then(|f| f.album.as_deref()).unwrap_or("Album");
                             format!("Group output files in a folder:\n - Create a folder name '{album}'")
                         });
                         ui.selectable_value(
@@ -480,7 +475,8 @@ impl AudioConverterApp {
                             OutputGrouping::Artist,
                             "Artist",
                         ).on_hover_text_at_pointer({
-                            let artist = self.files.first().and_then(|f| f.artist.as_deref()).unwrap_or("Artist");
+                            let first_file = self.app_state.files.first();
+                            let artist = first_file.and_then(|f| f.artist.as_deref()).unwrap_or("Artist");
                             format!("Group output files in a folder:\n - Create a folder name '{artist}'")
                         });
                     }).response.on_hover_text_at_pointer("Group output files in a folder");
@@ -490,9 +486,9 @@ impl AudioConverterApp {
         ui.separator();
 
         if ui.button("Convert!").clicked() {
-            for file in &self.files {
+            for file in &self.app_state.files {
                 self.tasks_manager.queue_audio_file(file.clone());
-                self.is_transcoding = true;
+                self.app_state.is_transcoding = true;
             }
         }
     }
@@ -518,7 +514,6 @@ impl AudioConverterApp {
                 ));
                 ui.separator();
 
-                // ACTIVE TASKS GO HERE
                 for task in &self.tasks_manager.active_tasks {
                     ui.horizontal(|ui| {
                         ui.label(format!(
@@ -535,7 +530,7 @@ impl AudioConverterApp {
     fn file_info_popup(&mut self, ctx: &egui::Context) {
         use egui::Align2;
 
-        let file = self.files.get(self.table_selection.unwrap()).unwrap();
+        let file = self.app_state.files.get(self.table_selection.unwrap()).unwrap();
 
         egui::Window::new("File information")
             .min_width(300.0)
@@ -569,24 +564,24 @@ impl AudioConverterApp {
 
                 ui.separator();
 
-                // This entire bit is so scuffed
-                let parent_changed = self.prev_album_art_path.as_ref().map(|p| p.parent())
+                // NOTE: This entire bit is so scuffed, needs a rewrite
+                let parent_changed = self.app_state.prev_album_art_path.as_ref().map(|p| p.parent())
                     != Some(file.path.parent());
                 let needs_reload =
-                    self.album_art_rx.is_none() && (self.album_art.is_none() || parent_changed); // TODO: check hashes
+                    self.app_state.album_art_rx.is_none() && (self.app_state.album_art.is_none() || parent_changed); // TODO: check hashes
                 if needs_reload {
-                    self.prev_album_art_path = Some(file.path.clone());
-                    self.album_art_rx = Some(file.load_album_art());
-                    self.album_art = None;
+                    self.app_state.prev_album_art_path = Some(file.path.clone());
+                    self.app_state.album_art_rx = Some(file.load_album_art());
+                    self.app_state.album_art = None;
                 }
 
-                if let Some(rx) = &self.album_art_rx {
+                if let Some(rx) = &self.app_state.album_art_rx {
                     match rx.try_recv() {
                         Ok(Ok(image)) => {
                             let hash = get_image_hash(image.as_raw());
 
-                            if self.album_art_hash == Some(hash) {
-                                self.album_art_rx = None;
+                            if self.app_state.album_art_hash == Some(hash) {
+                                self.app_state.album_art_rx = None;
                                 return;
                             }
 
@@ -596,14 +591,14 @@ impl AudioConverterApp {
                                 egui::TextureOptions::LINEAR,
                             );
 
-                            self.album_art_hash = Some(hash);
-                            self.album_art = Some(texture);
-                            self.album_art_rx = None;
+                            self.app_state.album_art_hash = Some(hash);
+                            self.app_state.album_art = Some(texture);
+                            self.app_state.album_art_rx = None;
 
                             ctx.request_repaint();
                         }
                         Ok(Err(_)) | Err(std::sync::mpsc::TryRecvError::Disconnected) => {
-                            self.album_art_rx = None;
+                            self.app_state.album_art_rx = None;
                         }
                         Err(mpsc::TryRecvError::Empty) => {
                             let _ = ui.label("Loading image...");
@@ -611,7 +606,7 @@ impl AudioConverterApp {
                     }
                 }
 
-                if let Some(texture) = &self.album_art {
+                if let Some(texture) = &self.app_state.album_art {
                     ui.add(
                         egui::Image::from_texture(texture)
                             .fit_to_fraction(Vec2::ONE)
@@ -630,7 +625,7 @@ impl eframe::App for AudioConverterApp {
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.tasks_manager.update(&self.settings);
-        self.is_transcoding = !self.tasks_manager.active_tasks.is_empty();
+        self.app_state.is_transcoding = !self.tasks_manager.active_tasks.is_empty();
 
         egui::TopBottomPanel::top("header").show(ctx, |ui| {
             ui.heading("Batch Audio File Converter");
@@ -662,7 +657,7 @@ impl eframe::App for AudioConverterApp {
                             Err(_) => continue,
                         };
 
-                        self.files.push(audio_file);
+                        self.app_state.files.push(audio_file);
                     }
                 }
 
@@ -673,9 +668,9 @@ impl eframe::App for AudioConverterApp {
                     for directory in &paths {
                         let mut files = match AudioFile::from_directory(directory) {
                             Ok(f) => f,
-                            Err(_) => continue, // TODO: maybe consider actually error handling
+                            Err(_) => continue,
                         };
-                        self.files.append(&mut files);
+                        self.app_state.files.append(&mut files);
                     }
                 }
 
@@ -685,7 +680,7 @@ impl eframe::App for AudioConverterApp {
                 self.file_table(ui);
             });
 
-            if self.files.is_empty() {
+            if self.app_state.files.is_empty() {
                 ui.vertical_centered(|ui| {
                     ui.add_space(ui.available_height() / 2.0 - 20.0);
                     ui.heading("Drag and drop a file or folder into the window to get started or click the 'Open files' button");
@@ -699,7 +694,7 @@ impl eframe::App for AudioConverterApp {
 
         self.preview_dropped_files(ctx);
 
-        if self.is_transcoding {
+        if self.app_state.is_transcoding {
             self.task_queue_window(ctx);
         }
     }
