@@ -13,7 +13,7 @@ jobs:
       contents: write
     strategy:
       matrix:
-        target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu]
+        target: [x86_64-unknown-linux-gnu]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -31,7 +31,6 @@ jobs:
 
       - name: Install prerequisites
         run: |
-          cargo install cross --git https://github.com/cross-rs/cross || true
           sudo apt update
           sudo apt install -y \
             ffmpeg \
@@ -44,16 +43,14 @@ jobs:
 
       - name: Build release
         run: |
-          export PKG_CONFIG_ALLOW_CROSS=1
-          export PKG_CONFIG_PATH=/usr/lib/${{ matrix.target_arch }}-linux-gnu/pkgconfig/
-          cross build --release --target ${{ matrix.target }}
+          cargo build --release --target ${{ matrix.target }}
 
       - name: Copy artifacts
         working-directory: ./target
         run: |
           mkdir -p "/tmp/artifacts"
           tar cvzf "/tmp/artifacts/audio-converter-$RELEASE_TAG-${{ matrix.target }}.tar.gz" \
-              -C "./${{ matrix.target }}/release" "audio-converter" "man" "completions"
+              -C "./${{ matrix.target }}/release" "audio-converter"
 
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
@@ -68,7 +65,7 @@ jobs:
       contents: write
     strategy:
       matrix:
-        target: [x86_64-apple-darwin, aarch64-apple-darwin]
+        target: [aarch64-apple-darwin]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -87,7 +84,6 @@ jobs:
       - name: Install prerequisites
         run: |
           rustup target add ${{ matrix.target }}
-          brew update
           brew install ffmpeg pkg-config
 
       - name: Set PKG_CONFIG_PATH
@@ -97,7 +93,6 @@ jobs:
 
       - name: Build release
         run: |
-          export PKG_CONFIG_ALLOW_CROSS=1
           cargo build --release --target ${{ matrix.target }}
 
       - name: Copy artifacts
@@ -105,7 +100,7 @@ jobs:
         run: |
           mkdir -p "/tmp/artifacts"
           tar cvzf "/tmp/artifacts/audio-converter-$RELEASE_TAG-${{ matrix.target }}.tar.gz" \
-              -C "./${{ matrix.target }}/release" "audio-converter" "man" "completions"
+              -C "./${{ matrix.target }}/release" "audio-converter"
 
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
@@ -158,7 +153,7 @@ jobs:
           if (-Not (Test-Path $outDir)) { New-Item -ItemType Directory -Path $outDir }
 
           $zipFile = "$outDir\audio-converter-$env:RELEASE_TAG-${{ matrix.target }}.zip"
-          Compress-Archive -Path "./${{ matrix.target }}/release/audio-converter.exe","./man","./completions" -DestinationPath $zipFile -Force
+          Compress-Archive -Path "./${{ matrix.target }}/release/audio-converter.exe" -DestinationPath $zipFile -Force
 
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
