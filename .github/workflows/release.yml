@@ -90,7 +90,6 @@ jobs:
           brew install ffmpeg pkg-config
 
       - name: Set PKG_CONFIG_PATH
-        if: runner.os == 'macOS'
         run: |
           echo "PKG_CONFIG_PATH=$(brew --prefix ffmpeg)/lib/pkgconfig" >> $GITHUB_ENV
 
@@ -140,30 +139,27 @@ jobs:
         run: |
           rustup target add ${{ matrix.target }}
 
-      - name: Cache prebuilt FFmpeg
-        uses: actions/cache@v3
-        with:
-          path: C:\FFmpeg
-          key: ffmpeg-n8.0-latest-win64-lgpl-shared-8.0
-
       - name: Download prebuilt FFmpeg libraries
-        if: steps.cache.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
           curl -L -o ffmpeg.zip https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.0-latest-win64-lgpl-shared-8.0.zip
-          Expand-Archive -Path ffmpeg.zip -DestinationPath ffmpeg-temp
-          $innerFolder = Get-ChildItem -Directory ffmpeg-temp | Select-Object -First 1
-          Move-Item -Path "$($innerFolder.FullName)\*" -Destination "C:/FFmpeg" -Force
+          Expand-Archive -Path ffmpeg.zip -DestinationPath temp_extract
+
+          New-Item -ItemType Directory -Path ${{ github.workspace }}\ffmpeg -Force
+
+          Move-Item -Path temp_extract\ffmpeg-n8.0-latest-win64-lgpl-shared-8.0\* -Destination ${{ github.workspace }}\ffmpeg
+          Move-Item -Path temp_extract\ffmpeg-n8.0-latest-win64-lgpl-shared-8.0\.* -Destination ${{ github.workspace }}\ffmpeg -ErrorAction SilentlyContinue
+
+          Remove-Item -Recurse -Force temp_extract
 
       - name: Build release
         env:
-          FFMPEG_DIR: C:\FFmpeg
-          FFMPEG_INCLUDE_DIR: C:\FFmpeg\include
-          FFMPEG_LIB_DIR: C:\FFmpeg\lib
+          FFMPEG_DIR: ${{ github.workspace }}\ffmpeg\
+          FFMPEG_INCLUDE_DIR: ${{ github.workspace }}\ffmpeg\include
+          FFMPEG_LIB_DIR: ${{ github.workspace }}\ffmpeg\lib
         run: cargo build --release --target ${{ matrix.target }}
 
       - name: Copy artifacts
-        if: runner.os == 'Windows'
         shell: pwsh
         working-directory: ./target
         run: |
@@ -172,7 +168,7 @@ jobs:
 
           $zipFile = "$outDir\audio-converter-$env:RELEASE_TAG-${{ matrix.target }}.zip"
 
-          $ffmpegDlls = Get-ChildItem "C:\FFmpeg\bin" -Filter "*.dll" | Select-Object -ExpandProperty FullName
+          $ffmpegDlls = Get-ChildItem "${{ github.workspace }}\ffmpeg\bin" -Filter "*.dll" | Select-Object -ExpandProperty FullName
           $licenseFiles = @("../LICENSE.txt", "../LICENSE.LGPL.txt")
           $files = @("./${{ matrix.target }}/release/audio-converter.exe") + $ffmpegDlls + $licenseFiles
 
