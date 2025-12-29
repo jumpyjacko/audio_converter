@@ -140,7 +140,7 @@ impl AudioFile {
                 .flatten()
                 .ok_or(AlbumArtError::NotFound);
 
-            let image = decode_image(&result.unwrap())
+            let image = to_egui_colorimage(&result.unwrap())
                 .ok()
                 .ok_or(AlbumArtError::DecodeFailed); // TODO: error handle
 
@@ -151,7 +151,7 @@ impl AudioFile {
     }
 }
 
-fn decode_image(bytes: &[u8]) -> Result<egui::ColorImage, image::ImageError> {
+pub fn to_egui_colorimage(bytes: &[u8]) -> Result<egui::ColorImage, image::ImageError> {
     use image::ImageReader;
     use std::io::Cursor;
 

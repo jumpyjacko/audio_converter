@@ -77,6 +77,7 @@ impl Task {
                 settings.out_bitrate,
                 &out_dir,
                 &settings.out_container,
+                settings.out_embed_art,
             ) {
                 Ok(_) => {
                     let _ = tx.send(TaskStatus::Completed);

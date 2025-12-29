@@ -1,10 +1,10 @@
 use std::path::Path;
 
+use base64::prelude::*;
+use byteorder::{BigEndian, WriteBytesExt};
 use ffmpeg_next::{codec, filter, format, frame, media};
 
-use crate::{
-    models::audio_file::{self, AudioCodec, AudioContainer, AudioFile},
-};
+use crate::models::audio_file::{self, AudioCodec, AudioContainer, AudioFile};
 
 // Transcoding code almost word-for-word copied from ffmpeg-next/examples/transcode-audio.rs
 struct Transcoder {
@@ -205,6 +205,7 @@ pub fn convert_file(
     out_bitrate: usize,
     out_directory: &Path,
     out_container: &AudioContainer,
+    embed_cover_art: bool,
 ) -> Result<(), ffmpeg_next::Error> {
     let mut output_path: String = out_directory.to_string_lossy().to_string() + "/";
     if let Some(stem) = file.path.file_stem().unwrap().to_str() {
@@ -223,12 +224,26 @@ pub fn convert_file(
 
     let mut ictx = format::input(&file.path)?;
     let mut octx = format::output(&output_path)?;
-    let mut transcoder = transcoder(&mut ictx, &mut octx, out_codec, out_bitrate).unwrap();
+    let mut transcoder = transcoder(&mut ictx, &mut octx, out_codec, out_bitrate)?;
 
-    octx.set_metadata(ictx.metadata().to_owned());
+    let mut metadata = ictx.metadata().to_owned();
+    if embed_cover_art {
+        // for when cover art is embedded as a mpeg, otherwise its already in metadata tags, so will get copied
+        if let Some(cover_art) = file.ff_get_album_art().ok().flatten() {
+            let mimetype: String = image::guess_format(&cover_art)
+                .unwrap()
+                .to_mime_type()
+                .to_string();
+            let block = construct_flac_picture_block(3, &mimetype, "Front cover", &cover_art);
+
+            let cover_art_string = BASE64_STANDARD.encode(block);
+            metadata.set("METADATA_BLOCK_PICTURE", &cover_art_string);
+        }
+    }
+
+    octx.set_metadata(metadata);
     octx.write_header().unwrap();
 
-    // TODO: copy mjpeg or png as base64 into vorbis metadata? works for all containers?
     for (stream, mut packet) in ictx.packets() {
         let i = stream.index();
 
@@ -252,4 +267,34 @@ pub fn convert_file(
     octx.write_trailer().unwrap();
 
     Ok(())
+}
+
+fn construct_flac_picture_block(
+    pic_type: u32,
+    mime: &str,
+    description: &str,
+    image_data: &[u8],
+) -> Vec<u8> {
+    let mut buf = Vec::new();
+
+    let _ = buf.write_u32::<BigEndian>(pic_type);
+
+    let _ = buf.write_u32::<BigEndian>(mime.len() as u32).unwrap();
+    let _ = buf.extend_from_slice(mime.as_bytes());
+
+    let _ = buf
+        .write_u32::<BigEndian>(description.len() as u32)
+        .unwrap();
+    let _ = buf.extend_from_slice(description.as_bytes());
+
+    // unknown width, height, depth, colors
+    let _ = buf.write_u32::<BigEndian>(0);
+    let _ = buf.write_u32::<BigEndian>(0);
+    let _ = buf.write_u32::<BigEndian>(0);
+    let _ = buf.write_u32::<BigEndian>(0);
+
+    let _ = buf.write_u32::<BigEndian>(image_data.len() as u32).unwrap();
+    let _ = buf.extend_from_slice(image_data);
+
+    buf
 }

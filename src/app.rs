@@ -30,6 +30,7 @@ pub struct Settings {
     pub out_bitrate: usize,
     pub out_directory: String,
     pub out_grouping: OutputGrouping,
+    pub out_embed_art: bool,
 }
 
 pub struct AppState {
@@ -78,6 +79,7 @@ impl Default for AudioConverterApp {
                 out_bitrate: 64000,
                 out_directory: "./".to_string(),
                 out_grouping: OutputGrouping::ArtistAlbum,
+                out_embed_art: true,
             },
         }
     }
@@ -167,7 +169,8 @@ impl AudioConverterApp {
                             };
                             self.app_state.files.append(&mut files);
                         } else {
-                            self.app_state.files
+                            self.app_state
+                                .files
                                 .push(AudioFile::new(file.clone().path.unwrap()).unwrap()); // TODO: error handle
                         }
                     }
@@ -481,6 +484,11 @@ impl AudioConverterApp {
                         });
                     }).response.on_hover_text_at_pointer("Group output files in a folder");
                 ui.end_row();
+
+                let cover_art_tooltip = "Toggle embedding cover art as a Vorbis metadata block\n - depending on the source file, it may inflate file size";
+                ui.label("Embed cover art").on_hover_text_at_pointer(cover_art_tooltip);
+                ui.checkbox(&mut self.settings.out_embed_art, "").on_hover_text_at_pointer(cover_art_tooltip);
+                ui.end_row();
             });
 
         ui.separator();
@@ -530,7 +538,11 @@ impl AudioConverterApp {
     fn file_info_popup(&mut self, ctx: &egui::Context) {
         use egui::Align2;
 
-        let file = self.app_state.files.get(self.table_selection.unwrap()).unwrap();
+        let file = self
+            .app_state
+            .files
+            .get(self.table_selection.unwrap())
+            .unwrap();
 
         egui::Window::new("File information")
             .min_width(300.0)
@@ -540,7 +552,6 @@ impl AudioConverterApp {
             .movable(false)
             .default_open(false)
             .show(ctx, |ui| {
-                // TODO: maybe not clone
                 ui.heading(file.title.clone().unwrap_or(NO_TITLE.to_string()));
                 egui::Grid::new("detailed_file_info")
                     .num_columns(2)
@@ -565,10 +576,14 @@ impl AudioConverterApp {
                 ui.separator();
 
                 // NOTE: This entire bit is so scuffed, needs a rewrite
-                let parent_changed = self.app_state.prev_album_art_path.as_ref().map(|p| p.parent())
+                let parent_changed = self
+                    .app_state
+                    .prev_album_art_path
+                    .as_ref()
+                    .map(|p| p.parent())
                     != Some(file.path.parent());
-                let needs_reload =
-                    self.app_state.album_art_rx.is_none() && (self.app_state.album_art.is_none() || parent_changed); // TODO: check hashes
+                let needs_reload = self.app_state.album_art_rx.is_none()
+                    && (self.app_state.album_art.is_none() || parent_changed); // TODO: check hashes
                 if needs_reload {
                     self.app_state.prev_album_art_path = Some(file.path.clone());
                     self.app_state.album_art_rx = Some(file.load_album_art());
