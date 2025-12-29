@@ -59,6 +59,7 @@ jobs:
         with:
           allowUpdates: true
           draft: true
+          generateReleaseNotes: true
           artifacts: /tmp/artifacts/*
 
   build-macos:
@@ -109,6 +110,7 @@ jobs:
         with:
           allowUpdates: true
           draft: true
+          generateReleaseNotes: true
           artifacts: /tmp/artifacts/*
 
   build-windows:
@@ -155,11 +157,16 @@ jobs:
           if (-Not (Test-Path $outDir)) { New-Item -ItemType Directory -Path $outDir }
 
           $zipFile = "$outDir\audio-converter-$env:RELEASE_TAG-${{ matrix.target }}.zip"
-          Compress-Archive -Path "./${{ matrix.target }}/release/audio-converter.exe" -DestinationPath $zipFile -Force
+
+          $dllPath = "C:\vcpkg\installed\x64-windows\bin\*"
+          $files = @("./${{ matrix.target }}/release/audio-converter.exe") + (Get-ChildItem $dllPath).FullName
+
+          Compress-Archive -Path $files -DestinationPath $zipFile -Force
 
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
         with:
           allowUpdates: true
           draft: true
+          generateReleaseNotes: true
           artifacts: C:/tmp/artifacts/*
