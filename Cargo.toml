@@ -1,7 +1,9 @@
 [package]
 name = "audio_converter"
+description = "A GUI app that uses ffmpeg/libav to batch convert audio files into a desired format"
 version = "0.1.0"
 edition = "2024"
+authors = ["Jackson Ly <bobjacklee27@gmail.com>"]
 
 [dependencies]
 egui = "0.33"
