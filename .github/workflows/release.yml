@@ -43,7 +43,10 @@ jobs:
             pkg-config
 
       - name: Build release
-        run: cross build --release --target ${{ matrix.target }}
+        run: |
+          export PKG_CONFIG_ALLOW_CROSS=1
+          export PKG_CONFIG_PATH=/usr/lib/${{ matrix.target_arch }}-linux-gnu/pkgconfig/
+          cross build --release --target ${{ matrix.target }}
 
       - name: Copy artifacts
         working-directory: ./target
@@ -87,8 +90,15 @@ jobs:
           brew update
           brew install ffmpeg pkg-config
 
+      - name: Set PKG_CONFIG_PATH
+        if: runner.os == 'macOS'
+        run: |
+          echo "PKG_CONFIG_PATH=$(brew --prefix ffmpeg)/lib/pkgconfig" >> $GITHUB_ENV
+
       - name: Build release
-        run: cargo build --release --target ${{ matrix.target }}
+        run: |
+          export PKG_CONFIG_ALLOW_CROSS=1
+          cargo build --release --target ${{ matrix.target }}
 
       - name: Copy artifacts
         working-directory: ./target
@@ -110,7 +120,7 @@ jobs:
       contents: write
     strategy:
       matrix:
-        target: [x86_64-pc-windows-msvc, aarch64-pc-windows-msvc]
+        target: [x86_64-pc-windows-msvc]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
