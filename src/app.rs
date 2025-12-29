@@ -162,26 +162,6 @@ impl AudioConverterApp {
                 Color32::WHITE,
             );
         }
-
-        ctx.input(|i| {
-            if !i.raw.dropped_files.is_empty() {
-                for file in &i.raw.dropped_files {
-                    if let Some(path) = &file.path {
-                        if path.is_dir() {
-                            let mut files = match AudioFile::from_directory(path) {
-                                Ok(f) => f,
-                                Err(_) => continue, // TODO: maybe consider actually error handling
-                            };
-                            self.app_state.files.append(&mut files);
-                        } else {
-                            self.app_state
-                                .files
-                                .push(AudioFile::new(file.clone().path.unwrap()).unwrap()); // TODO: error handle
-                        }
-                    }
-                }
-            }
-        });
     }
 
     fn file_table(&mut self, ui: &mut egui::Ui) {
@@ -713,6 +693,25 @@ impl eframe::App for AudioConverterApp {
         }
 
         self.preview_dropped_files(ctx);
+        ctx.input(|i| {
+            if !i.raw.dropped_files.is_empty() {
+                for file in &i.raw.dropped_files {
+                    if let Some(path) = &file.path {
+                        if path.is_dir() {
+                            let mut files = match AudioFile::from_directory(path) {
+                                Ok(f) => f,
+                                Err(_) => continue, // TODO: maybe consider actually error handling
+                            };
+                            self.app_state.files.append(&mut files);
+                        } else {
+                            self.app_state
+                                .files
+                                .push(AudioFile::new(path.clone()).unwrap()); // TODO: error handle
+                        }
+                    }
+                }
+            }
+        });
 
         if self.app_state.is_transcoding {
             self.task_queue_window(ctx);
