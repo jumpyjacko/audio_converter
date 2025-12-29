@@ -1,10 +1,9 @@
 use std::path::Path;
 
+use byteorder::{BigEndian, WriteBytesExt};
 use ffmpeg_next::{codec, filter, format, frame, media};
 
-use crate::{
-    models::audio_file::{self, AudioCodec, AudioContainer, AudioFile},
-};
+use crate::models::audio_file::{self, AudioCodec, AudioContainer, AudioFile};
 
 // Transcoding code almost word-for-word copied from ffmpeg-next/examples/transcode-audio.rs
 struct Transcoder {
@@ -223,9 +222,20 @@ pub fn convert_file(
 
     let mut ictx = format::input(&file.path)?;
     let mut octx = format::output(&output_path)?;
-    let mut transcoder = transcoder(&mut ictx, &mut octx, out_codec, out_bitrate).unwrap();
+    let mut transcoder = transcoder(&mut ictx, &mut octx, out_codec, out_bitrate)?;
 
-    octx.set_metadata(ictx.metadata().to_owned());
+    use base64::prelude::*;
+    let mut metadata = ictx.metadata().to_owned();
+    if let Some(cover_art) = file.ff_get_album_art().ok().flatten() {
+        let mimetype: String = image::guess_format(&cover_art).unwrap().to_mime_type().to_string();
+        println!("{mimetype}");
+        let block = construct_flac_picture_block(3, &mimetype, "Front cover", &cover_art);
+
+        let cover_art_string = BASE64_STANDARD.encode(block);
+        metadata.set("METADATA_BLOCK_PICTURE", &cover_art_string);
+    }
+
+    octx.set_metadata(metadata);
     octx.write_header().unwrap();
 
     // TODO: copy mjpeg or png as base64 into vorbis metadata? works for all containers?
@@ -252,4 +262,35 @@ pub fn convert_file(
     octx.write_trailer().unwrap();
 
     Ok(())
+}
+
+fn construct_flac_picture_block(
+    pic_type: u32,
+    mime: &str,
+    description: &str,
+    image_data: &[u8],
+) -> Vec<u8> {
+    let mut buf = Vec::new();
+
+    let _ = buf.write_u32::<BigEndian>(pic_type);
+
+    // MIME type
+    let _ = buf.write_u32::<BigEndian>(mime.len() as u32).unwrap();
+    let _ = buf.extend_from_slice(mime.as_bytes());
+
+    // description
+    let _ = buf.write_u32::<BigEndian>(description.len() as u32).unwrap();
+    let _ = buf.extend_from_slice(description.as_bytes());
+
+    // unknown width, height, depth, colors
+    let _ = buf.write_u32::<BigEndian>(0);
+    let _ = buf.write_u32::<BigEndian>(0);
+    let _ = buf.write_u32::<BigEndian>(0);
+    let _ = buf.write_u32::<BigEndian>(0);
+
+    // picture data
+    let _ = buf.write_u32::<BigEndian>(image_data.len() as u32).unwrap();
+    let _ = buf.extend_from_slice(image_data);
+
+    buf
 }
