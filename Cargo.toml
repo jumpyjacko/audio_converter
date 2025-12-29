@@ -1,5 +1,5 @@
 [package]
-name = "audio_converter"
+name = "audio-converter"
 description = "A GUI app that uses ffmpeg/libav to batch convert audio files into a desired format"
 version = "0.1.0"
 edition = "2024"
