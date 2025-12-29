@@ -30,6 +30,7 @@ pub struct Settings {
     pub out_bitrate: usize,
     pub out_directory: String,
     pub out_grouping: OutputGrouping,
+    pub out_embed_art: bool,
 }
 
 pub struct AppState {
@@ -78,6 +79,7 @@ impl Default for AudioConverterApp {
                 out_bitrate: 64000,
                 out_directory: "./".to_string(),
                 out_grouping: OutputGrouping::ArtistAlbum,
+                out_embed_art: true,
             },
         }
     }
@@ -480,6 +482,11 @@ impl AudioConverterApp {
                             format!("Group output files in a folder:\n - Create a folder name '{artist}'")
                         });
                     }).response.on_hover_text_at_pointer("Group output files in a folder");
+                ui.end_row();
+
+                let cover_art_tooltip = "Toggle embedding cover art as a Vorbis metadata block\n - depending on the source file, it may inflate file size";
+                ui.label("Embed cover art").on_hover_text_at_pointer(cover_art_tooltip);
+                ui.checkbox(&mut self.settings.out_embed_art, "").on_hover_text_at_pointer(cover_art_tooltip);
                 ui.end_row();
             });
 

@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use base64::prelude::*;
 use byteorder::{BigEndian, WriteBytesExt};
 use ffmpeg_next::{codec, filter, format, frame, media};
 
@@ -204,6 +205,7 @@ pub fn convert_file(
     out_bitrate: usize,
     out_directory: &Path,
     out_container: &AudioContainer,
+    embed_cover_art: bool,
 ) -> Result<(), ffmpeg_next::Error> {
     let mut output_path: String = out_directory.to_string_lossy().to_string() + "/";
     if let Some(stem) = file.path.file_stem().unwrap().to_str() {
@@ -224,21 +226,23 @@ pub fn convert_file(
     let mut octx = format::output(&output_path)?;
     let mut transcoder = transcoder(&mut ictx, &mut octx, out_codec, out_bitrate)?;
 
-    use base64::prelude::*;
     let mut metadata = ictx.metadata().to_owned();
-    if let Some(cover_art) = file.ff_get_album_art().ok().flatten() {
-        let mimetype: String = image::guess_format(&cover_art).unwrap().to_mime_type().to_string();
-        println!("{mimetype}");
-        let block = construct_flac_picture_block(3, &mimetype, "Front cover", &cover_art);
+    if embed_cover_art {
+        if let Some(cover_art) = file.ff_get_album_art().ok().flatten() {
+            let mimetype: String = image::guess_format(&cover_art)
+                .unwrap()
+                .to_mime_type()
+                .to_string();
+            let block = construct_flac_picture_block(3, &mimetype, "Front cover", &cover_art);
 
-        let cover_art_string = BASE64_STANDARD.encode(block);
-        metadata.set("METADATA_BLOCK_PICTURE", &cover_art_string);
+            let cover_art_string = BASE64_STANDARD.encode(block);
+            metadata.set("METADATA_BLOCK_PICTURE", &cover_art_string);
+        }
     }
 
     octx.set_metadata(metadata);
     octx.write_header().unwrap();
 
-    // TODO: copy mjpeg or png as base64 into vorbis metadata? works for all containers?
     for (stream, mut packet) in ictx.packets() {
         let i = stream.index();
 
@@ -279,7 +283,9 @@ fn construct_flac_picture_block(
     let _ = buf.extend_from_slice(mime.as_bytes());
 
     // description
-    let _ = buf.write_u32::<BigEndian>(description.len() as u32).unwrap();
+    let _ = buf
+        .write_u32::<BigEndian>(description.len() as u32)
+        .unwrap();
     let _ = buf.extend_from_slice(description.as_bytes());
 
     // unknown width, height, depth, colors
