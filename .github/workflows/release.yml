@@ -155,7 +155,6 @@ jobs:
           Expand-Archive -Path ffmpeg.zip -DestinationPath C:\FFmpeg
 
       - name: Build release
-        shell: pwsh
         env:
           FFMPEG_DIR: C:\FFmpeg
           FFMPEG_INCLUDE_DIR: C:\FFmpeg\include
