@@ -228,6 +228,7 @@ pub fn convert_file(
 
     let mut metadata = ictx.metadata().to_owned();
     if embed_cover_art {
+        // for when cover art is embedded as a mpeg, otherwise its already in metadata tags, so will get copied
         if let Some(cover_art) = file.ff_get_album_art().ok().flatten() {
             let mimetype: String = image::guess_format(&cover_art)
                 .unwrap()
@@ -278,11 +279,9 @@ fn construct_flac_picture_block(
 
     let _ = buf.write_u32::<BigEndian>(pic_type);
 
-    // MIME type
     let _ = buf.write_u32::<BigEndian>(mime.len() as u32).unwrap();
     let _ = buf.extend_from_slice(mime.as_bytes());
 
-    // description
     let _ = buf
         .write_u32::<BigEndian>(description.len() as u32)
         .unwrap();
@@ -294,7 +293,6 @@ fn construct_flac_picture_block(
     let _ = buf.write_u32::<BigEndian>(0);
     let _ = buf.write_u32::<BigEndian>(0);
 
-    // picture data
     let _ = buf.write_u32::<BigEndian>(image_data.len() as u32).unwrap();
     let _ = buf.extend_from_slice(image_data);
 

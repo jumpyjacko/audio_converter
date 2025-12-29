@@ -169,7 +169,8 @@ impl AudioConverterApp {
                             };
                             self.app_state.files.append(&mut files);
                         } else {
-                            self.app_state.files
+                            self.app_state
+                                .files
                                 .push(AudioFile::new(file.clone().path.unwrap()).unwrap()); // TODO: error handle
                         }
                     }
@@ -537,7 +538,11 @@ impl AudioConverterApp {
     fn file_info_popup(&mut self, ctx: &egui::Context) {
         use egui::Align2;
 
-        let file = self.app_state.files.get(self.table_selection.unwrap()).unwrap();
+        let file = self
+            .app_state
+            .files
+            .get(self.table_selection.unwrap())
+            .unwrap();
 
         egui::Window::new("File information")
             .min_width(300.0)
@@ -547,7 +552,6 @@ impl AudioConverterApp {
             .movable(false)
             .default_open(false)
             .show(ctx, |ui| {
-                // TODO: maybe not clone
                 ui.heading(file.title.clone().unwrap_or(NO_TITLE.to_string()));
                 egui::Grid::new("detailed_file_info")
                     .num_columns(2)
@@ -572,10 +576,14 @@ impl AudioConverterApp {
                 ui.separator();
 
                 // NOTE: This entire bit is so scuffed, needs a rewrite
-                let parent_changed = self.app_state.prev_album_art_path.as_ref().map(|p| p.parent())
+                let parent_changed = self
+                    .app_state
+                    .prev_album_art_path
+                    .as_ref()
+                    .map(|p| p.parent())
                     != Some(file.path.parent());
-                let needs_reload =
-                    self.app_state.album_art_rx.is_none() && (self.app_state.album_art.is_none() || parent_changed); // TODO: check hashes
+                let needs_reload = self.app_state.album_art_rx.is_none()
+                    && (self.app_state.album_art.is_none() || parent_changed); // TODO: check hashes
                 if needs_reload {
                     self.app_state.prev_album_art_path = Some(file.path.clone());
                     self.app_state.album_art_rx = Some(file.load_album_art());
