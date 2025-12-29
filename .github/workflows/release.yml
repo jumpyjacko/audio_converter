@@ -158,9 +158,12 @@ jobs:
 
           $zipFile = "$outDir\audio-converter-$env:RELEASE_TAG-${{ matrix.target }}.zip"
 
-          $dllPath = "C:\vcpkg\installed\x64-windows\bin\*"
+          $dllPath = "C:\vcpkg\installed\x64-windows\bin"
+          $ffmpegDlls = Get-ChildItem $dllDir -Filter "*.dll" | Where-Object { 
+              $_.Name -notmatch "pkgconf|.*\.pdb" 
+          } | Select-Object -ExpandProperty FullName
           $licenseFiles = @("../LICENSE.txt", "../LICENSE.LGPL.txt")
-          $files = @("./${{ matrix.target }}/release/audio-converter.exe") + (Get-ChildItem $dllPath).FullName + $licenseFiles
+          $files = @("./${{ matrix.target }}/release/audio-converter.exe") + $ffmpegDlls + $licenseFiles
 
           Compress-Archive -Path $files -DestinationPath $zipFile -Force
 
