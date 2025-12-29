@@ -132,7 +132,12 @@ impl AudioConverterApp {
         if !ctx.input(|i| i.raw.hovered_files.is_empty()) {
             let text = ctx.input(|i| {
                 let mut text = "Adding files to queue:\n".to_owned();
-                for file in &i.raw.hovered_files {
+                for (idx, file) in i.raw.hovered_files.iter().enumerate() {
+                    if idx == 3 {
+                        let _ = write!(text, "\n...\n{} more files", i.raw.hovered_files.len() - 3);
+                        break;
+                    }
+
                     if let Some(path) = &file.path {
                         write!(text, "\n{}", path.display()).ok();
                     } else if !file.mime.is_empty() {
