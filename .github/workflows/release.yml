@@ -107,6 +107,7 @@ jobs:
         run: git fetch --tags -f
 
       - name: Read release tag
+        shell: bash
         run: |
           if [ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]; then
               echo "RELEASE_TAG=${{ github.event.inputs.tag }}" >> "$GITHUB_ENV"
@@ -118,11 +119,15 @@ jobs:
         run: cargo build --release --target ${{ matrix.target }}
 
       - name: Copy artifacts
+        if: runner.os == 'Windows'
+        shell: pwsh
         working-directory: ./target
         run: |
-          mkdir -p "C:/tmp/artifacts"
-          tar cvzf "C:/tmp/artifacts/audio-converter-$RELEASE_TAG-${{ matrix.target }}.tar.gz" \
-              -C "./${{ matrix.target }}/release" "audio-converter.exe" "man" "completions"
+          $outDir = "C:\tmp\artifacts"
+          if (-Not (Test-Path $outDir)) { New-Item -ItemType Directory -Path $outDir }
+
+          $zipFile = "$outDir\audio-converter-$env:RELEASE_TAG-${{ matrix.target }}.zip"
+          Compress-Archive -Path "./${{ matrix.target }}/release/audio-converter.exe","./man","./completions" -DestinationPath $zipFile -Force
 
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
