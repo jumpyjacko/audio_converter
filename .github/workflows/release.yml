@@ -48,11 +48,11 @@ jobs:
           cargo build --release --target ${{ matrix.target }}
 
       - name: Copy artifacts
-        working-directory: ./target
         run: |
           mkdir -p "/tmp/artifacts"
           tar cvzf "/tmp/artifacts/audio-converter-$RELEASE_TAG-${{ matrix.target }}.tar.gz" \
-              -C "./${{ matrix.target }}/release" "audio-converter" "../LICENSE.txt" "../LICENSE.LGPL.txt"
+              -C "./target/${{ matrix.target }}/release" "audio-converter" \
+              -C "$(pwd)" "LICENSE.txt" "LICENSE.LGPL.txt"
 
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
@@ -99,11 +99,11 @@ jobs:
           cargo build --release --target ${{ matrix.target }}
 
       - name: Copy artifacts
-        working-directory: ./target
         run: |
           mkdir -p "/tmp/artifacts"
           tar cvzf "/tmp/artifacts/audio-converter-$RELEASE_TAG-${{ matrix.target }}.tar.gz" \
-              -C "./${{ matrix.target }}/release" "audio-converter" "../LICENSE.txt" "../LICENSE.LGPL.txt"
+              -C "./target/${{ matrix.target }}/release" "audio-converter" \
+              -C "$(pwd)" "LICENSE.txt" "LICENSE.LGPL.txt"
 
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
@@ -144,20 +144,22 @@ jobs:
         uses: actions/cache@v3
         with:
           path: C:\FFmpeg
-          key: ffmpeg-msvc-7.1-lgpl-amd64-shared
+          key: ffmpeg-n8.0-latest-win64-lgpl-shared-8.0
 
       - name: Download prebuilt FFmpeg libraries
         if: steps.cache.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
-          curl -L -o ffmpeg.zip https://github.com/System233/ffmpeg-msvc-prebuilt/releases/download/7.1/ffmpeg-7.1-lgpl-amd64-shared.zip
-          Expand-Archive -Path ffmpeg.zip -DestinationPath C:\FFmpeg
+          curl -L -o ffmpeg.zip https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.0-latest-win64-lgpl-shared-8.0.zip
+          Expand-Archive -Path ffmpeg.zip -DestinationPath ffmpeg-temp
+          $innerFolder = Get-ChildItem -Directory ffmpeg-temp | Select-Object -First 1
+          Move-Item -Path "$($innerFolder.FullName)\*" -Destination "C:/FFmpeg" -Force
 
       - name: Build release
         env:
           FFMPEG_DIR: C:\FFmpeg
           FFMPEG_INCLUDE_DIR: C:\FFmpeg\include
-          FFMPEG_LIB_DIR: C:\FFmpeg\bin
+          FFMPEG_LIB_DIR: C:\FFmpeg\lib
         run: cargo build --release --target ${{ matrix.target }}
 
       - name: Copy artifacts
