@@ -1,9 +1,9 @@
 name: Release
 
-on: 
+on:
   push:
     tags:
-    - 'v*.*.*'
+      - "v*.*.*"
   workflow_dispatch:
 
 jobs:
@@ -136,16 +136,31 @@ jobs:
               echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> "$GITHUB_ENV"
           fi
 
-      - name: Install prerequisites
+      - name: Install Rust target
         shell: pwsh
         run: |
           rustup target add ${{ matrix.target }}
-          git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
-          C:\vcpkg\bootstrap-vcpkg.bat
-          C:\vcpkg\vcpkg install ffmpeg:x64-windows
-          C:\vcpkg\vcpkg integrate install
+
+      - name: Cache prebuilt FFmpeg
+        uses: actions/cache@v3
+        with:
+          path: C:\FFmpeg
+          key: ffmpeg-msvc-7.1-lgpl-amd64-shared
+
+      - name: Download prebuilt FFmpeg libraries
+        if: steps.cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          curl -L -o ffmpeg.zip https://github.com/System233/ffmpeg-msvc-prebuilt/releases/download/7.1/ffmpeg-7.1-lgpl-amd64-shared.zip
+          Expand-Archive -Path ffmpeg.zip -DestinationPath C:\FFmpeg
 
       - name: Build release
+        shell: pwsh
+        env:
+          FFMPEG_DIR: C:\FFmpeg
+          FFMPEG_INCLUDE_DIR: C:\FFmpeg\include
+          FFMPEG_LIB_DIR: C:\FFmpeg\bin
+          PATH: C:\FFmpeg\bin;${{ env.PATH }}
         run: cargo build --release --target ${{ matrix.target }}
 
       - name: Copy artifacts
@@ -158,10 +173,7 @@ jobs:
 
           $zipFile = "$outDir\audio-converter-$env:RELEASE_TAG-${{ matrix.target }}.zip"
 
-          $dllPath = "C:\vcpkg\installed\x64-windows\bin"
-          $ffmpegDlls = Get-ChildItem $dllDir -Filter "*.dll" | Where-Object { 
-              $_.Name -notmatch "pkgconf|.*\.pdb" 
-          } | Select-Object -ExpandProperty FullName
+          $ffmpegDlls = Get-ChildItem "C:\FFmpeg\bin" -Filter "*.dll" | Select-Object -ExpandProperty FullName
           $licenseFiles = @("../LICENSE.txt", "../LICENSE.LGPL.txt")
           $files = @("./${{ matrix.target }}/release/audio-converter.exe") + $ffmpegDlls + $licenseFiles
 
