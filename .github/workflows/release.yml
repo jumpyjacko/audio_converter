@@ -37,6 +37,8 @@ jobs:
             libavcodec-dev \
             libavformat-dev \
             libavutil-dev \
+            libavfilter-dev \
+            libavdevice-dev \
             libswresample-dev \
             libswscale-dev \
             pkg-config
