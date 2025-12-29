@@ -32,6 +32,15 @@ jobs:
       - name: Install prerequisites
         run: |
           cargo install cross --git https://github.com/cross-rs/cross || true
+          sudo apt update
+          sudo apt install -y \
+            ffmpeg \
+            libavcodec-dev \
+            libavformat-dev \
+            libavutil-dev \
+            libswresample-dev \
+            libswscale-dev \
+            pkg-config
 
       - name: Build release
         run: cross build --release --target ${{ matrix.target }}
@@ -73,7 +82,10 @@ jobs:
           fi
 
       - name: Install prerequisites
-        run: rustup target add ${{ matrix.target }}
+        run: |
+          rustup target add ${{ matrix.target }}
+          brew update
+          brew install ffmpeg pkg-config
 
       - name: Build release
         run: cargo build --release --target ${{ matrix.target }}
@@ -114,6 +126,15 @@ jobs:
           else
               echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> "$GITHUB_ENV"
           fi
+
+      - name: Install prerequisites
+        shell: pwsh
+        run: |
+          rustup target add ${{ matrix.target }}
+          git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
+          C:\vcpkg\bootstrap-vcpkg.bat
+          C:\vcpkg\vcpkg install ffmpeg:x64-windows
+          C:\vcpkg\vcpkg integrate install
 
       - name: Build release
         run: cargo build --release --target ${{ matrix.target }}
