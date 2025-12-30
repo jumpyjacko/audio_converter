@@ -505,11 +505,12 @@ impl AudioConverterApp {
                 ui.checkbox(&mut self.settings.out_embed_art, "").on_hover_text_at_pointer(cover_art_tooltip);
                 ui.end_row();
 
+                let resize_cover_art_tooltip = "Resize the embedded cover art and compress to Jpeg, reduces final file size";
                 ui.add_enabled_ui(self.settings.out_embed_art, |ui| {
-                    ui.label("Resize cover art?");
+                    ui.label("Resize cover art?").on_hover_text_at_pointer(resize_cover_art_tooltip);
                 });
                 ui.add_enabled_ui(self.settings.out_embed_art, |ui| {
-                    ui.checkbox(&mut self.settings.out_enable_cover_art_resize, "");
+                    ui.checkbox(&mut self.settings.out_enable_cover_art_resize, "").on_hover_text_at_pointer(resize_cover_art_tooltip);
                 });
                 ui.end_row();
 
