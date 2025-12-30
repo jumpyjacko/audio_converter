@@ -161,14 +161,14 @@ pub fn to_egui_colorimage(bytes: &[u8]) -> Result<egui::ColorImage, image::Image
     Ok(egui::ColorImage::from_rgba_unmultiplied([300, 300], &img))
 }
 
-pub fn get_image_hash(bytes: &[u8]) -> u64 {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-
-    let mut hasher = DefaultHasher::new();
-    bytes.hash(&mut hasher);
-    hasher.finish()
-}
+// pub fn get_image_hash(bytes: &[u8]) -> u64 {
+//     use std::collections::hash_map::DefaultHasher;
+//     use std::hash::{Hash, Hasher};
+//
+//     let mut hasher = DefaultHasher::new();
+//     bytes.hash(&mut hasher);
+//     hasher.finish()
+// }
 
 // TODO: handle strange track number strings?? i've never encountered other types than '1' and '1/12'
 fn parse_track_string(s: &str) -> Option<u32> {

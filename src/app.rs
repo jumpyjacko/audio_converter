@@ -5,7 +5,7 @@ use egui::{
 use std::sync::mpsc;
 
 use crate::{
-    models::audio_file::{AlbumArtError, AudioCodec, AudioContainer, AudioFile, get_image_hash},
+    models::audio_file::{AlbumArtError, AudioCodec, AudioContainer, AudioFile},
     tasks_manager::TasksManager,
 };
 
@@ -247,7 +247,7 @@ impl AudioConverterApp {
 
                 if let Some(i) = clicked_row {
                     self.toggle_row_selection(i);
-                    self.app_state.cover_art_rx = Some(self.app_state.files[i].load_album_art());
+                    self.app_state.cover_art_rx = Some(self.app_state.files[i].load_album_art()); // refresh cover art TODO: move out from here?
                 }
             });
     }
@@ -614,11 +614,8 @@ impl AudioConverterApp {
                 if let Some(rx) = &self.app_state.cover_art_rx {
                     match rx.try_recv() {
                         Ok(Ok(image)) => {
-                            let texture = ctx.load_texture(
-                                "cover_art",
-                                image,
-                                egui::TextureOptions::LINEAR,
-                            );
+                            let texture =
+                                ctx.load_texture("cover_art", image, egui::TextureOptions::LINEAR);
 
                             self.app_state.cover_art = Some(texture);
                             self.app_state.cover_art_rx = None;
