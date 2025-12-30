@@ -260,13 +260,10 @@ impl AudioConverterApp {
     }
 
     fn settings_list(&mut self, ui: &mut egui::Ui) {
-        egui::Grid::new("app_settings")
+        egui::Grid::new("settings")
             .num_columns(2)
-            .striped(true)
+            // .striped(true)
             .show(ui, |ui| {
-                ui.heading("Application Settings");
-                ui.end_row();
-
                 ui.label("Theme");
                 egui::ComboBox::from_id_salt("app_theme")
                     .selected_text(match self.settings.app_theme {
@@ -279,14 +276,12 @@ impl AudioConverterApp {
                         ui.selectable_value(&mut self.settings.app_theme, AppTheme::Dark, "Dark");
                         ui.selectable_value(&mut self.settings.app_theme, AppTheme::Light, "Light");
                     });
-            });
+                ui.end_row();
 
-        ui.separator();
+                ui.separator();
+                ui.separator();
+                ui.end_row();
 
-        egui::Grid::new("runtime_settings")
-            .num_columns(2)
-            .striped(true)
-            .show(ui, |ui| {
                 ui.heading("Runtime Settings");
                 ui.end_row();
 
@@ -298,14 +293,11 @@ impl AudioConverterApp {
                         .range(1..=10),
                 );
                 ui.end_row();
-            });
 
-        ui.separator();
+                ui.separator();
+                ui.separator();
+                ui.end_row();
 
-        egui::Grid::new("output_settings")
-            .num_columns(2)
-            .striped(true)
-            .show(ui, |ui| {
                 ui.heading("Output settings");
                 ui.end_row();
 
@@ -668,7 +660,6 @@ impl eframe::App for AudioConverterApp {
         egui::SidePanel::right("output_settings").show(ctx, |ui| {
             ui.heading("Settings");
             ui.separator();
-
             egui::ScrollArea::vertical().show(ui, |ui| {
                 self.settings_list(ui);
             });
