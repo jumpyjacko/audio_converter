@@ -18,13 +18,23 @@ pub enum OutputGrouping {
     Artist,
 }
 
+#[derive(serde::Deserialize, serde::Serialize, PartialEq, Clone)]
+enum AppTheme {
+    System,
+    Dark,
+    Light,
+}
+
 pub const NO_ARTIST: &str = "<no artist>";
 pub const NO_ALBUM: &str = "<no album>";
 pub const NO_TITLE: &str = "<no title>";
 
 #[derive(serde::Deserialize, serde::Serialize, Clone)]
 pub struct Settings {
+    pub app_theme: AppTheme,
+
     pub run_concurrent_task_count: usize,
+
     pub out_codec: AudioCodec,
     pub out_container: AudioContainer,
     pub out_bitrate: usize,
@@ -73,6 +83,7 @@ impl Default for AudioConverterApp {
             table_selection: None,
 
             settings: Settings {
+                app_theme: AppTheme::System,
                 run_concurrent_task_count: 2,
                 out_codec: AudioCodec::OPUS,
                 out_container: AudioContainer::OGG,
@@ -249,10 +260,28 @@ impl AudioConverterApp {
     }
 
     fn settings_list(&mut self, ui: &mut egui::Ui) {
-        egui::Grid::new("runtime_settings")
+        egui::Grid::new("settings")
             .num_columns(2)
-            .striped(true)
+            // .striped(true)
             .show(ui, |ui| {
+                ui.label("Theme");
+                egui::ComboBox::from_id_salt("app_theme")
+                    .selected_text(match self.settings.app_theme {
+                        AppTheme::System => "Follow system",
+                        AppTheme::Dark => "Dark",
+                        AppTheme::Light => "Light",
+                    })
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(&mut self.settings.app_theme, AppTheme::System, "Follow system");
+                        ui.selectable_value(&mut self.settings.app_theme, AppTheme::Dark, "Dark");
+                        ui.selectable_value(&mut self.settings.app_theme, AppTheme::Light, "Light");
+                    });
+                ui.end_row();
+
+                ui.separator();
+                ui.separator();
+                ui.end_row();
+
                 ui.heading("Runtime Settings");
                 ui.end_row();
 
@@ -264,14 +293,11 @@ impl AudioConverterApp {
                         .range(1..=10),
                 );
                 ui.end_row();
-            });
 
-        ui.separator();
+                ui.separator();
+                ui.separator();
+                ui.end_row();
 
-        egui::Grid::new("output_settings")
-            .num_columns(2)
-            .striped(true)
-            .show(ui, |ui| {
                 ui.heading("Output settings");
                 ui.end_row();
 
@@ -627,6 +653,12 @@ impl eframe::App for AudioConverterApp {
         self.tasks_manager.update(&self.settings);
         self.app_state.is_transcoding = !self.tasks_manager.active_tasks.is_empty();
 
+        match self.settings.app_theme {
+            AppTheme::System => ctx.set_visuals(egui::Visuals::default()),
+            AppTheme::Dark => ctx.set_visuals(egui::Visuals::dark()),
+            AppTheme::Light => ctx.set_visuals(egui::Visuals::light()),
+        }
+
         egui::TopBottomPanel::top("header").show(ctx, |ui| {
             ui.heading("Batch Audio File Converter");
         });
@@ -634,7 +666,6 @@ impl eframe::App for AudioConverterApp {
         egui::SidePanel::right("output_settings").show(ctx, |ui| {
             ui.heading("Settings");
             ui.separator();
-
             egui::ScrollArea::vertical().show(ui, |ui| {
                 self.settings_list(ui);
             });
