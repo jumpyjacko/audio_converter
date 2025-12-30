@@ -19,7 +19,7 @@ pub enum OutputGrouping {
 }
 
 #[derive(serde::Deserialize, serde::Serialize, PartialEq, Clone)]
-enum AppTheme {
+pub enum AppTheme {
     System,
     Dark,
     Light,
@@ -41,6 +41,8 @@ pub struct Settings {
     pub out_directory: String,
     pub out_grouping: OutputGrouping,
     pub out_embed_art: bool,
+    pub out_enable_cover_art_resize: bool,
+    pub out_cover_art_resolution: u32,
 }
 
 pub struct AppState {
@@ -91,6 +93,8 @@ impl Default for AudioConverterApp {
                 out_directory: "./".to_string(),
                 out_grouping: OutputGrouping::ArtistAlbum,
                 out_embed_art: true,
+                out_enable_cover_art_resize: false,
+                out_cover_art_resolution: 1000,
             },
         }
     }
@@ -499,6 +503,30 @@ impl AudioConverterApp {
                 let cover_art_tooltip = "Toggle embedding cover art as a Vorbis metadata block\n - depending on the source file, it may inflate file size";
                 ui.label("Embed cover art").on_hover_text_at_pointer(cover_art_tooltip);
                 ui.checkbox(&mut self.settings.out_embed_art, "").on_hover_text_at_pointer(cover_art_tooltip);
+                ui.end_row();
+
+                let resize_cover_art_tooltip = "Resize the embedded cover art and compress to Jpeg, reduces final file size";
+                ui.add_enabled_ui(self.settings.out_embed_art, |ui| {
+                    ui.label("Resize cover art?").on_hover_text_at_pointer(resize_cover_art_tooltip);
+                });
+                ui.add_enabled_ui(self.settings.out_embed_art, |ui| {
+                    ui.checkbox(&mut self.settings.out_enable_cover_art_resize, "").on_hover_text_at_pointer(resize_cover_art_tooltip);
+                });
+                ui.end_row();
+
+                ui.add_enabled_ui(self.settings.out_enable_cover_art_resize && self.settings.out_embed_art, |ui| {
+                    ui.label("Cover art resolution");
+                });
+                ui.add_enabled_ui(self.settings.out_enable_cover_art_resize && self.settings.out_embed_art, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.add(
+                            egui::DragValue::new(&mut self.settings.out_cover_art_resolution)
+                                .fixed_decimals(0)
+                                .speed(10.0)
+                        );
+                        ui.label("px");
+                    });
+                });
                 ui.end_row();
             });
 
