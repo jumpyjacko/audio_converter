@@ -42,7 +42,7 @@ pub struct Settings {
     pub out_grouping: OutputGrouping,
     pub out_embed_art: bool,
     pub out_enable_cover_art_resize: bool,
-    pub out_cover_art_resolution: usize,
+    pub out_cover_art_resolution: u32,
 }
 
 pub struct AppState {
@@ -94,7 +94,7 @@ impl Default for AudioConverterApp {
                 out_grouping: OutputGrouping::ArtistAlbum,
                 out_embed_art: true,
                 out_enable_cover_art_resize: false,
-                out_cover_art_resolution: 300,
+                out_cover_art_resolution: 1000,
             },
         }
     }

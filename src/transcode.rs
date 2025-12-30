@@ -1,8 +1,10 @@
+use std::io::Cursor;
 use std::path::Path;
 
 use base64::prelude::*;
 use byteorder::{BigEndian, WriteBytesExt};
 use ffmpeg_next::{codec, filter, format, frame, media};
+use image::ImageReader;
 
 use crate::models::audio_file::{self, AudioCodec, AudioContainer, AudioFile};
 
@@ -206,6 +208,8 @@ pub fn convert_file(
     out_directory: &Path,
     out_container: &AudioContainer,
     embed_cover_art: bool,
+    resize_cover_art: bool,
+    cover_art_size: u32,
 ) -> Result<(), ffmpeg_next::Error> {
     let mut output_path: String = out_directory.to_string_lossy().to_string() + "/";
     if let Some(stem) = file.path.file_stem().unwrap().to_str() {
@@ -229,7 +233,14 @@ pub fn convert_file(
     let mut metadata = ictx.metadata().to_owned();
     if embed_cover_art {
         // for when cover art is embedded as a mpeg, otherwise its already in metadata tags, so will get copied
-        if let Some(cover_art) = file.ff_get_album_art().ok().flatten() {
+        if let Some(mut cover_art) = file.ff_get_album_art().ok().flatten() {
+            if resize_cover_art {
+                let reader = ImageReader::new(Cursor::new(cover_art.clone())).with_guessed_format().unwrap();
+                let resized = reader.decode().unwrap().thumbnail(cover_art_size, cover_art_size);
+                cover_art.clear();
+                resized.write_to(&mut Cursor::new(&mut cover_art), image::ImageFormat::Jpeg).unwrap();
+            }
+
             let mimetype: String = image::guess_format(&cover_art)
                 .unwrap()
                 .to_mime_type()
