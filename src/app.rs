@@ -5,7 +5,7 @@ use egui::{
 use std::sync::mpsc;
 
 use crate::{
-    models::audio_file::{AlbumArtError, AudioCodec, AudioContainer, AudioFile, get_image_hash},
+    models::audio_file::{AlbumArtError, AudioCodec, AudioContainer, AudioFile},
     tasks_manager::TasksManager,
 };
 
@@ -47,10 +47,8 @@ pub struct Settings {
 
 pub struct AppState {
     files: Vec<AudioFile>,
-    album_art_rx: Option<mpsc::Receiver<Result<egui::ColorImage, AlbumArtError>>>,
-    album_art_hash: Option<u64>,
-    album_art: Option<egui::TextureHandle>,
-    prev_album_art_path: Option<std::path::PathBuf>,
+    cover_art_rx: Option<mpsc::Receiver<Result<egui::ColorImage, AlbumArtError>>>,
+    cover_art: Option<egui::TextureHandle>,
 
     is_transcoding: bool,
 }
@@ -74,10 +72,8 @@ impl Default for AudioConverterApp {
         Self {
             app_state: AppState {
                 files: Vec::new(),
-                album_art_rx: None,
-                album_art_hash: None,
-                album_art: None,
-                prev_album_art_path: None,
+                cover_art_rx: None,
+                cover_art: None,
                 is_transcoding: false,
             },
             tasks_manager: TasksManager::new(),
@@ -251,6 +247,7 @@ impl AudioConverterApp {
 
                 if let Some(i) = clicked_row {
                     self.toggle_row_selection(i);
+                    self.app_state.cover_art_rx = Some(self.app_state.files[i].load_album_art()); // refresh cover art TODO: move out from here?
                 }
             });
     }
@@ -614,53 +611,29 @@ impl AudioConverterApp {
 
                 ui.separator();
 
-                // NOTE: This entire bit is so scuffed, needs a rewrite
-                let parent_changed = self
-                    .app_state
-                    .prev_album_art_path
-                    .as_ref()
-                    .map(|p| p.parent())
-                    != Some(file.path.parent());
-                let needs_reload = self.app_state.album_art_rx.is_none()
-                    && (self.app_state.album_art.is_none() || parent_changed); // TODO: check hashes
-                if needs_reload {
-                    self.app_state.prev_album_art_path = Some(file.path.clone());
-                    self.app_state.album_art_rx = Some(file.load_album_art());
-                    self.app_state.album_art = None;
-                }
-
-                if let Some(rx) = &self.app_state.album_art_rx {
+                if let Some(rx) = &self.app_state.cover_art_rx {
                     match rx.try_recv() {
                         Ok(Ok(image)) => {
-                            let hash = get_image_hash(image.as_raw());
+                            let texture =
+                                ctx.load_texture("cover_art", image, egui::TextureOptions::LINEAR);
 
-                            if self.app_state.album_art_hash == Some(hash) {
-                                self.app_state.album_art_rx = None;
-                                return;
-                            }
-
-                            let texture = ctx.load_texture(
-                                format!("album_{}", hash),
-                                image,
-                                egui::TextureOptions::LINEAR,
-                            );
-
-                            self.app_state.album_art_hash = Some(hash);
-                            self.app_state.album_art = Some(texture);
-                            self.app_state.album_art_rx = None;
+                            self.app_state.cover_art = Some(texture);
+                            self.app_state.cover_art_rx = None;
 
                             ctx.request_repaint();
                         }
                         Ok(Err(_)) | Err(std::sync::mpsc::TryRecvError::Disconnected) => {
-                            self.app_state.album_art_rx = None;
+                            self.app_state.cover_art = None;
+                            self.app_state.cover_art_rx = None;
                         }
                         Err(mpsc::TryRecvError::Empty) => {
                             let _ = ui.label("Loading image...");
+                            self.app_state.cover_art = None;
                         }
                     }
                 }
 
-                if let Some(texture) = &self.app_state.album_art {
+                if let Some(texture) = &self.app_state.cover_art {
                     ui.add(
                         egui::Image::from_texture(texture)
                             .fit_to_fraction(Vec2::ONE)

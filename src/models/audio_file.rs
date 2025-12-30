@@ -1,4 +1,5 @@
 use ffmpeg_next::format;
+use image::{ImageBuffer, Rgba};
 use std::path::PathBuf;
 use std::sync::mpsc;
 use std::thread;
@@ -140,35 +141,42 @@ impl AudioFile {
                 .flatten()
                 .ok_or(AlbumArtError::NotFound);
 
-            let image = to_egui_colorimage(&result.unwrap())
-                .ok()
-                .ok_or(AlbumArtError::DecodeFailed); // TODO: error handle
+            let decoded = match decode_thumbnail(&result.unwrap(), 300) {
+                Ok(image) => image,
+                Err(_) => return Err(AlbumArtError::DecodeFailed),
+            };
+            let image = egui::ColorImage::from_rgba_unmultiplied([300, 300], &decoded);
 
-            let _ = tx.send(image);
+            let _ = tx.send(Ok(image));
+
+            Ok(())
         });
 
         rx
     }
 }
 
-pub fn to_egui_colorimage(bytes: &[u8]) -> Result<egui::ColorImage, image::ImageError> {
+pub fn decode_thumbnail(
+    bytes: &[u8],
+    size: u32,
+) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, image::ImageError> {
     use image::ImageReader;
     use std::io::Cursor;
 
     let reader = ImageReader::new(Cursor::new(bytes)).with_guessed_format()?;
-    let img = reader.decode()?.thumbnail_exact(300, 300).to_rgba8();
+    let img = reader.decode()?.thumbnail_exact(size, size).to_rgba8();
 
-    Ok(egui::ColorImage::from_rgba_unmultiplied([300, 300], &img))
+    Ok(img)
 }
 
-pub fn get_image_hash(bytes: &[u8]) -> u64 {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-
-    let mut hasher = DefaultHasher::new();
-    bytes.hash(&mut hasher);
-    hasher.finish()
-}
+// pub fn get_image_hash(bytes: &[u8]) -> u64 {
+//     use std::collections::hash_map::DefaultHasher;
+//     use std::hash::{Hash, Hasher};
+//
+//     let mut hasher = DefaultHasher::new();
+//     bytes.hash(&mut hasher);
+//     hasher.finish()
+// }
 
 // TODO: handle strange track number strings?? i've never encountered other types than '1' and '1/12'
 fn parse_track_string(s: &str) -> Option<u32> {
