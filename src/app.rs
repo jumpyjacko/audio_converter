@@ -18,13 +18,23 @@ pub enum OutputGrouping {
     Artist,
 }
 
+#[derive(serde::Deserialize, serde::Serialize, PartialEq, Clone)]
+enum AppTheme {
+    System,
+    Dark,
+    Light,
+}
+
 pub const NO_ARTIST: &str = "<no artist>";
 pub const NO_ALBUM: &str = "<no album>";
 pub const NO_TITLE: &str = "<no title>";
 
 #[derive(serde::Deserialize, serde::Serialize, Clone)]
 pub struct Settings {
+    pub app_theme: AppTheme,
+
     pub run_concurrent_task_count: usize,
+
     pub out_codec: AudioCodec,
     pub out_container: AudioContainer,
     pub out_bitrate: usize,
@@ -73,6 +83,7 @@ impl Default for AudioConverterApp {
             table_selection: None,
 
             settings: Settings {
+                app_theme: AppTheme::System,
                 run_concurrent_task_count: 2,
                 out_codec: AudioCodec::OPUS,
                 out_container: AudioContainer::OGG,
@@ -249,6 +260,29 @@ impl AudioConverterApp {
     }
 
     fn settings_list(&mut self, ui: &mut egui::Ui) {
+        egui::Grid::new("app_settings")
+            .num_columns(2)
+            .striped(true)
+            .show(ui, |ui| {
+                ui.heading("Application Settings");
+                ui.end_row();
+
+                ui.label("Theme");
+                egui::ComboBox::from_id_salt("app_theme")
+                    .selected_text(match self.settings.app_theme {
+                        AppTheme::System => "Follow system",
+                        AppTheme::Dark => "Dark",
+                        AppTheme::Light => "Light",
+                    })
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(&mut self.settings.app_theme, AppTheme::System, "Follow system");
+                        ui.selectable_value(&mut self.settings.app_theme, AppTheme::Dark, "Dark");
+                        ui.selectable_value(&mut self.settings.app_theme, AppTheme::Light, "Light");
+                    });
+            });
+
+        ui.separator();
+
         egui::Grid::new("runtime_settings")
             .num_columns(2)
             .striped(true)
