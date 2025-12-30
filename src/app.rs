@@ -653,6 +653,12 @@ impl eframe::App for AudioConverterApp {
         self.tasks_manager.update(&self.settings);
         self.app_state.is_transcoding = !self.tasks_manager.active_tasks.is_empty();
 
+        match self.settings.app_theme {
+            AppTheme::System => ctx.set_visuals(egui::Visuals::default()),
+            AppTheme::Dark => ctx.set_visuals(egui::Visuals::dark()),
+            AppTheme::Light => ctx.set_visuals(egui::Visuals::light()),
+        }
+
         egui::TopBottomPanel::top("header").show(ctx, |ui| {
             ui.heading("Batch Audio File Converter");
         });
