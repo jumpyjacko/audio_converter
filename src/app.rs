@@ -330,12 +330,18 @@ impl AudioConverterApp {
                             .clicked()
                         {
                             self.settings.out_container = AudioContainer::MP3;
+                            if self.settings.out_sample_rate == AudioSampleRate::HiRes96 {
+                                self.settings.out_sample_rate = AudioSampleRate::Studio48;
+                            }
                         }
                         if ui
                             .selectable_value(&mut self.settings.out_codec, AudioCodec::AAC, "AAC")
                             .clicked()
                         {
                             self.settings.out_container = AudioContainer::M4A;
+                            if self.settings.out_sample_rate == AudioSampleRate::HiRes96 {
+                                self.settings.out_sample_rate = AudioSampleRate::Studio48;
+                            }
                         }
                         if ui
                             .selectable_value(
@@ -346,6 +352,9 @@ impl AudioConverterApp {
                             .clicked()
                         {
                             self.settings.out_container = AudioContainer::OGG;
+                            if self.settings.out_sample_rate == AudioSampleRate::HiRes96 {
+                                self.settings.out_sample_rate = AudioSampleRate::Studio48;
+                            }
                         }
                         if ui
                             .selectable_value(
@@ -423,7 +432,8 @@ impl AudioConverterApp {
                     .show_ui(ui, |ui| {
                         ui.selectable_value(&mut self.settings.out_sample_rate, AudioSampleRate::CD44, "CD (44.1kHz)");
                         ui.selectable_value(&mut self.settings.out_sample_rate, AudioSampleRate::Studio48, "Studio (48kHz)");
-                        if self.settings.out_codec == AudioCodec::FLAC || self.settings.out_codec == AudioCodec::OPUS {
+
+                        if self.settings.out_codec == AudioCodec::FLAC {
                             ui.selectable_value(&mut self.settings.out_sample_rate, AudioSampleRate::HiRes96, "HiRes (96kHz)");
                         }
                     });
