@@ -1,4 +1,4 @@
-use ffmpeg_next::format;
+use ffmpeg_next::{format, media};
 use image::{ImageBuffer, Rgba};
 use std::path::PathBuf;
 use std::sync::mpsc;
@@ -59,24 +59,19 @@ impl Default for AudioFile {
 
 impl AudioFile {
     pub fn new(path: PathBuf) -> Result<Self, AudioFileError> {
+        // TODO: literally what is this? 
         if !ALLOWED_INPUT_TYPES.contains(&path.extension().unwrap().to_str().unwrap()) {
-            // TODO: literally what am i writing
             return Err(AudioFileError::NotAnAudioFile);
         }
 
         let input_ctx = format::input(&path).expect("Invalid path provided to FFmpeg");
-        let metadata = input_ctx.metadata();
-        let artist: Option<String> = metadata.get("ARTIST").map(|s| s.to_string());
-        let album: Option<String> = metadata.get("ALBUM").map(|s| s.to_string());
-        let title: Option<String> = metadata.get("TITLE").map(|s| s.to_string());
-        let track: Option<String> = metadata.get("track").map(|s| s.to_string());
 
         return Ok(Self {
             path: path,
-            artist: artist,
-            album: album,
-            title: title,
-            track: track,
+            artist: get_tag(&input_ctx, "ARTIST"),
+            album: get_tag(&input_ctx, "ALBUM"),
+            title: get_tag(&input_ctx, "TITLE"),
+            track: get_tag(&input_ctx, "TRACK"),
         });
     }
 
@@ -154,6 +149,19 @@ impl AudioFile {
 
         rx
     }
+}
+
+fn get_tag(ctx: &format::context::Input, key: &str) -> Option<String> {
+    if let Some(v) = ctx.metadata().get(key) {
+        return Some(v.to_string());
+    }
+
+    let stream = ctx.streams().best(media::Type::Audio)?;
+    if let Some(v) = stream.metadata().get(key) {
+        return Some(v.to_string());
+    }
+
+    None
 }
 
 pub fn decode_thumbnail(
