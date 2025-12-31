@@ -74,6 +74,7 @@ impl Task {
             match transcode::convert_file(
                 file,
                 &settings.out_codec,
+                &settings.out_sample_rate,
                 settings.out_bitrate,
                 &out_dir,
                 &settings.out_container,
