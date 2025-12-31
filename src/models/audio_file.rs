@@ -36,6 +36,13 @@ pub enum AudioContainer {
     OGG,
 }
 
+#[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq, Eq, Clone)]
+pub enum AudioSampleRate {
+    CD44,
+    Studio48,
+    HiRes96,
+}
+
 #[derive(Clone, Debug)]
 pub struct AudioFile {
     pub path: PathBuf,

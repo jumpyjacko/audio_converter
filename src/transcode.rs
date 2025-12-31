@@ -6,7 +6,7 @@ use byteorder::{BigEndian, WriteBytesExt};
 use ffmpeg_next::{codec, filter, format, frame, media};
 use image::ImageReader;
 
-use crate::models::audio_file::{self, AudioCodec, AudioContainer, AudioFile};
+use crate::models::audio_file::{self, AudioCodec, AudioContainer, AudioFile, AudioSampleRate};
 
 // Transcoding code almost word-for-word copied from ffmpeg-next/examples/transcode-audio.rs
 struct Transcoder {
@@ -68,6 +68,7 @@ fn transcoder(
     ictx: &mut format::context::Input,
     octx: &mut format::context::Output,
     out_codec: &AudioCodec,
+    out_sample_rate: &AudioSampleRate,
     out_bitrate: usize,
 ) -> Result<Transcoder, ffmpeg_next::Error> {
     let input = ictx
@@ -104,11 +105,11 @@ fn transcoder(
         encoder.set_flags(ffmpeg_next::codec::flag::Flags::GLOBAL_HEADER);
     }
 
-    if out_codec == &audio_file::AudioCodec::OPUS {
-        encoder.set_rate(48000);
-    } else {
-        encoder.set_rate(decoder.rate() as i32);
-    }
+    encoder.set_rate(match out_sample_rate {
+        AudioSampleRate::CD44 => 44100,
+        AudioSampleRate::Studio48 => 48000,
+        AudioSampleRate::HiRes96 => 96000,
+    });
     encoder.set_channel_layout(channel_layout);
     encoder.set_format(
         codec
@@ -204,6 +205,7 @@ impl Transcoder {
 pub fn convert_file(
     file: AudioFile,
     out_codec: &AudioCodec,
+    out_sample_rate: &AudioSampleRate,
     out_bitrate: usize,
     out_directory: &Path,
     out_container: &AudioContainer,
@@ -228,7 +230,7 @@ pub fn convert_file(
 
     let mut ictx = format::input(&file.path)?;
     let mut octx = format::output(&output_path)?;
-    let mut transcoder = transcoder(&mut ictx, &mut octx, out_codec, out_bitrate)?;
+    let mut transcoder = transcoder(&mut ictx, &mut octx, out_codec, out_sample_rate, out_bitrate)?;
 
     let mut metadata = ictx.metadata().to_owned();
     if embed_cover_art {

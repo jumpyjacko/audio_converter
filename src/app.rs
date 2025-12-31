@@ -5,7 +5,7 @@ use egui::{
 use std::sync::mpsc;
 
 use crate::{
-    models::audio_file::{AlbumArtError, AudioCodec, AudioContainer, AudioFile},
+    models::audio_file::{AlbumArtError, AudioCodec, AudioContainer, AudioFile, AudioSampleRate},
     tasks_manager::TasksManager,
 };
 
@@ -37,6 +37,7 @@ pub struct Settings {
 
     pub out_codec: AudioCodec,
     pub out_container: AudioContainer,
+    pub out_sample_rate: AudioSampleRate,
     pub out_bitrate: usize,
     pub out_directory: String,
     pub out_grouping: OutputGrouping,
@@ -52,6 +53,7 @@ pub struct AppState {
 
     is_transcoding: bool,
 }
+
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)]
 pub struct AudioConverterApp {
@@ -85,6 +87,7 @@ impl Default for AudioConverterApp {
                 run_concurrent_task_count: 2,
                 out_codec: AudioCodec::OPUS,
                 out_container: AudioContainer::OGG,
+                out_sample_rate: AudioSampleRate::Studio48,
                 out_bitrate: 64000,
                 out_directory: "./".to_string(),
                 out_grouping: OutputGrouping::ArtistAlbum,
@@ -327,12 +330,18 @@ impl AudioConverterApp {
                             .clicked()
                         {
                             self.settings.out_container = AudioContainer::MP3;
+                            if self.settings.out_sample_rate == AudioSampleRate::HiRes96 {
+                                self.settings.out_sample_rate = AudioSampleRate::Studio48;
+                            }
                         }
                         if ui
                             .selectable_value(&mut self.settings.out_codec, AudioCodec::AAC, "AAC")
                             .clicked()
                         {
                             self.settings.out_container = AudioContainer::M4A;
+                            if self.settings.out_sample_rate == AudioSampleRate::HiRes96 {
+                                self.settings.out_sample_rate = AudioSampleRate::Studio48;
+                            }
                         }
                         if ui
                             .selectable_value(
@@ -343,6 +352,9 @@ impl AudioConverterApp {
                             .clicked()
                         {
                             self.settings.out_container = AudioContainer::OGG;
+                            if self.settings.out_sample_rate == AudioSampleRate::HiRes96 {
+                                self.settings.out_sample_rate = AudioSampleRate::Studio48;
+                            }
                         }
                         if ui
                             .selectable_value(
@@ -406,6 +418,23 @@ impl AudioConverterApp {
                                 AudioContainer::OGG,
                                 ".ogg",
                             );
+                        }
+                    });
+                ui.end_row();
+
+                ui.label("Sample rate");
+                egui::ComboBox::from_id_salt("output_samplerate_combobox")
+                    .selected_text(match self.settings.out_sample_rate {
+                        AudioSampleRate::CD44 => "CD (44.1kHz)",
+                        AudioSampleRate::Studio48 => "Studio (48kHz)",
+                        AudioSampleRate::HiRes96 => "HiRes (96kHz)",
+                    })
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(&mut self.settings.out_sample_rate, AudioSampleRate::CD44, "CD (44.1kHz)");
+                        ui.selectable_value(&mut self.settings.out_sample_rate, AudioSampleRate::Studio48, "Studio (48kHz)");
+
+                        if self.settings.out_codec == AudioCodec::FLAC {
+                            ui.selectable_value(&mut self.settings.out_sample_rate, AudioSampleRate::HiRes96, "HiRes (96kHz)");
                         }
                     });
                 ui.end_row();
