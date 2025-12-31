@@ -413,6 +413,22 @@ impl AudioConverterApp {
                     });
                 ui.end_row();
 
+                ui.label("Sample rate");
+                egui::ComboBox::from_id_salt("output_samplerate_combobox")
+                    .selected_text(match self.settings.out_sample_rate {
+                        AudioSampleRate::CD44 => "CD (44.1kHz)",
+                        AudioSampleRate::Studio48 => "Studio (48kHz)",
+                        AudioSampleRate::HiRes96 => "HiRes (96kHz)",
+                    })
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(&mut self.settings.out_sample_rate, AudioSampleRate::CD44, "CD (44.1kHz)");
+                        ui.selectable_value(&mut self.settings.out_sample_rate, AudioSampleRate::Studio48, "Studio (48kHz)");
+                        if self.settings.out_codec == AudioCodec::FLAC || self.settings.out_codec == AudioCodec::OPUS {
+                            ui.selectable_value(&mut self.settings.out_sample_rate, AudioSampleRate::HiRes96, "HiRes (96kHz)");
+                        }
+                    });
+                ui.end_row();
+
                 ui.label("Bitrate");
                 ui.add(
                     egui::DragValue::new(&mut self.settings.out_bitrate)
