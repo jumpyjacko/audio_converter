@@ -5,7 +5,7 @@ use egui::{
 use std::sync::mpsc;
 
 use crate::{
-    models::audio_file::{AlbumArtError, AudioCodec, AudioContainer, AudioFile},
+    models::audio_file::{AlbumArtError, AudioCodec, AudioContainer, AudioFile, AudioSampleRate},
     tasks_manager::TasksManager,
 };
 
@@ -37,6 +37,7 @@ pub struct Settings {
 
     pub out_codec: AudioCodec,
     pub out_container: AudioContainer,
+    pub out_sample_rate: AudioSampleRate,
     pub out_bitrate: usize,
     pub out_directory: String,
     pub out_grouping: OutputGrouping,
@@ -52,6 +53,7 @@ pub struct AppState {
 
     is_transcoding: bool,
 }
+
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)]
 pub struct AudioConverterApp {
@@ -85,6 +87,7 @@ impl Default for AudioConverterApp {
                 run_concurrent_task_count: 2,
                 out_codec: AudioCodec::OPUS,
                 out_container: AudioContainer::OGG,
+                out_sample_rate: AudioSampleRate::Studio48,
                 out_bitrate: 64000,
                 out_directory: "./".to_string(),
                 out_grouping: OutputGrouping::ArtistAlbum,
