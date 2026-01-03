@@ -3,7 +3,7 @@ use std::path::Path;
 
 use base64::prelude::*;
 use byteorder::{BigEndian, WriteBytesExt};
-use ffmpeg_next::{codec, filter, format, frame, media};
+use ffmpeg_next::{codec, ffi::av_frame_unref, filter, format, frame, media};
 use image::ImageReader;
 
 use crate::models::audio_file::{self, AudioCodec, AudioContainer, AudioFile, AudioSampleRate};
@@ -180,6 +180,10 @@ impl Transcoder {
         {
             self.send_frame_to_encoder(&filtered);
             self.receive_and_process_encoded_packets(octx);
+
+            unsafe {
+                av_frame_unref(filtered.as_mut_ptr());
+            }
         }
     }
 
