@@ -13,24 +13,20 @@ jobs:
       contents: write
     strategy:
       matrix:
+        ffmpeg: [6, 8]
         target: [x86_64-unknown-linux-gnu]
+    container:
+      image: ${{ matrix.ffmpeg == '8' && 'debian:unstable' || '' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Fetch tags
-        run: git fetch --tags -f
-
-      - name: Read release tag
-        run: |
-          if [ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]; then
-              echo "RELEASE_TAG=${{ github.event.inputs.tag }}" >> "$GITHUB_ENV"
-          else
-              echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> "$GITHUB_ENV"
-          fi
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Install prerequisites
         run: |
+          if [ "${{ matrix.ffmpeg }}" == "6" ]; then
           sudo apt update
           sudo apt install -y \
             ffmpeg \
@@ -42,6 +38,21 @@ jobs:
             libswresample-dev \
             libswscale-dev \
             pkg-config
+          elif [ "${{ matrix.ffmpeg }}" = "8" ]; then
+            apt-get update
+            apt-get install -y \
+              ffmpeg libavcodec-dev libavdevice-dev libavfilter-dev \
+              libavformat-dev libavutil-dev libswresample-dev libswscale-dev \
+              pkg-config build-essential clang rustc cargo git
+          fi
+
+      - name: Read release tag
+        run: |
+          if [ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]; then
+              echo "RELEASE_TAG=${{ github.event.inputs.tag }}" >> "$GITHUB_ENV"
+          else
+              echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> "$GITHUB_ENV"
+          fi
 
       - name: Build release
         run: |
@@ -50,7 +61,7 @@ jobs:
       - name: Copy artifacts
         run: |
           mkdir -p "/tmp/artifacts"
-          tar cvzf "/tmp/artifacts/audio-converter-$RELEASE_TAG-${{ matrix.target }}.tar.gz" \
+          tar cvzf "/tmp/artifacts/audio-converter-$RELEASE_TAG-ffmpeg${{ matrix.ffmpeg }}-${{ matrix.target }}.tar.gz" \
               -C "./target/${{ matrix.target }}/release" "audio-converter" \
               -C "$(pwd)" "LICENSE.txt" "LICENSE.LGPL.txt"
 
@@ -72,9 +83,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Fetch tags
-        run: git fetch --tags -f
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Read release tag
         run: |
@@ -122,9 +133,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Fetch tags
-        run: git fetch --tags -f
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Read release tag
         shell: bash
