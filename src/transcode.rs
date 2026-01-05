@@ -3,12 +3,10 @@ use std::{io::Cursor, ptr};
 
 use base64::prelude::*;
 use byteorder::{BigEndian, WriteBytesExt};
-use ffmpeg_next::ffi::{av_dict_set, av_init_packet, av_malloc, av_write_frame};
-use ffmpeg_next::{
-    codec,
-    ffi::{av_frame_unref, avformat_new_stream},
-    filter, format, frame, media,
+use ffmpeg_next::ffi::{
+    av_dict_set, av_init_packet, av_malloc, av_write_frame, av_frame_unref, avformat_new_stream,
 };
+use ffmpeg_next::{codec, filter, format, frame, media};
 use image::ImageReader;
 
 use crate::models::audio_file::{self, AudioCodec, AudioContainer, AudioFile, AudioSampleRate};
@@ -276,7 +274,10 @@ pub fn convert_file(
                 .to_mime_type()
                 .to_string();
 
-            if *out_codec == AudioCodec::FLAC {
+            if *out_codec == AudioCodec::FLAC
+                || *out_codec == AudioCodec::VORBIS
+                || *out_codec == AudioCodec::OPUS
+            {
                 let block = construct_flac_picture_block(3, &mimetype, "Front cover", &cover_art);
 
                 let cover_art_string = BASE64_STANDARD.encode(block);
