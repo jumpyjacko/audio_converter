@@ -3,7 +3,9 @@ use std::{io::Cursor, ptr};
 
 use base64::prelude::*;
 use byteorder::{BigEndian, WriteBytesExt};
-use ffmpeg_next::ffi::{av_dict_set, av_init_packet, av_malloc, av_write_frame, avformat_new_stream};
+use ffmpeg_next::ffi::{
+    av_dict_set, av_init_packet, av_malloc, av_write_frame, avformat_new_stream,
+};
 use ffmpeg_next::{codec, ffi::av_frame_unref, filter, format, frame, media};
 use image::ImageReader;
 
@@ -272,7 +274,10 @@ pub fn convert_file(
                 .to_mime_type()
                 .to_string();
 
-            if *out_codec == AudioCodec::FLAC {
+            if *out_codec == AudioCodec::FLAC
+                || *out_codec == AudioCodec::VORBIS
+                || *out_codec == AudioCodec::OPUS
+            {
                 let block = construct_flac_picture_block(3, &mimetype, "Front cover", &cover_art);
 
                 let cover_art_string = BASE64_STANDARD.encode(block);
@@ -330,7 +335,8 @@ pub fn convert_file(
     if embed_cover_art {
         if *out_codec == AudioCodec::MP3 {
             unsafe {
-                let cover_stream: *mut ffmpeg_next::ffi::AVStream = octx.stream(1).unwrap().as_ptr().cast_mut();
+                let cover_stream: *mut ffmpeg_next::ffi::AVStream =
+                    octx.stream(1).unwrap().as_ptr().cast_mut();
 
                 let data = av_malloc(cover_art.len()) as *mut u8;
                 if data.is_null() {
