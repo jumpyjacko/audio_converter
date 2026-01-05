@@ -3,7 +3,7 @@ use std::{io::Cursor, ptr};
 
 use base64::prelude::*;
 use byteorder::{BigEndian, WriteBytesExt};
-use ffmpeg_next::ffi::{av_dict_set, av_init_packet, av_malloc, av_packet_from_data, av_write_frame};
+use ffmpeg_next::ffi::{av_dict_set, av_init_packet, av_malloc, av_write_frame};
 use ffmpeg_next::{
     codec,
     ffi::{av_frame_unref, avformat_new_stream},
@@ -281,8 +281,7 @@ pub fn convert_file(
 
                 let cover_art_string = BASE64_STANDARD.encode(block);
                 metadata.set("METADATA_BLOCK_PICTURE", &cover_art_string);
-            } else if *out_codec == AudioCodec::AAC {
-                // i give up trying to do this in safe rust code
+            } else if *out_codec == AudioCodec::AAC || *out_codec == AudioCodec::MP3 {
                 let cover_stream = unsafe { avformat_new_stream(octx.as_mut_ptr(), ptr::null()) };
                 if cover_stream.is_null() {
                     return Err(ffmpeg_next::Error::Unknown);
@@ -299,27 +298,11 @@ pub fn convert_file(
                         "image/png" => u32::from_be_bytes(*b"png "),
                         _ => u32::from_be_bytes(*b"jpeg"),
                     };
-                    (*par).extradata = ptr::null_mut();
-                    (*par).extradata_size = 0;
                     (*par).width = width as i32;
                     (*par).height = height as i32;
 
                     (*cover_stream).disposition =
                         ffmpeg_next::ffi::AV_DISPOSITION_ATTACHED_PIC as i32;
-
-                    let data = av_malloc(cover_art.len()) as *mut u8;
-                    if data.is_null() {
-                        return Err(ffmpeg_next::Error::Bug);
-                    }
-                    ptr::copy_nonoverlapping(cover_art.as_ptr(), data, cover_art.len());
-
-                    let pkt = &mut (*cover_stream).attached_pic;
-                    let ret = av_packet_from_data(pkt, data, cover_art.len() as i32);
-                    if ret < 0 {
-                        return Err(ffmpeg_next::Error::Bug);
-                    }
-                    pkt.stream_index = (*cover_stream).index;
-                    pkt.flags |= ffmpeg_next::ffi::AV_PKT_FLAG_KEY;
 
                     let key = std::ffi::CString::new("title").unwrap();
                     let val = std::ffi::CString::new("Album Art").unwrap();
@@ -356,9 +339,10 @@ pub fn convert_file(
     transcoder.receive_and_process_encoded_packets(&mut octx);
 
     if embed_cover_art {
-        if *out_codec == AudioCodec::AAC {
+        if *out_codec == AudioCodec::AAC || *out_codec == AudioCodec::MP3 {
             unsafe {
-                let cover_stream: *mut ffmpeg_next::ffi::AVStream = octx.stream(1).unwrap().as_ptr().cast_mut();
+                let cover_stream: *mut ffmpeg_next::ffi::AVStream =
+                    octx.stream(1).unwrap().as_ptr().cast_mut();
 
                 let data = av_malloc(cover_art.len()) as *mut u8;
                 if data.is_null() {
