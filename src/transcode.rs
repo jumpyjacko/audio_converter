@@ -1,9 +1,14 @@
-use std::io::Cursor;
 use std::path::Path;
+use std::{io::Cursor, ptr};
 
 use base64::prelude::*;
 use byteorder::{BigEndian, WriteBytesExt};
-use ffmpeg_next::{codec, ffi::av_frame_unref, filter, format, frame, media};
+use ffmpeg_next::ffi::{av_dict_set, av_malloc, av_packet_from_data};
+use ffmpeg_next::{
+    codec,
+    ffi::{av_frame_unref, avformat_new_stream},
+    filter, format, frame, media,
+};
 use image::ImageReader;
 
 use crate::models::audio_file::{self, AudioCodec, AudioContainer, AudioFile, AudioSampleRate};
@@ -234,27 +239,94 @@ pub fn convert_file(
 
     let mut ictx = format::input(&file.path)?;
     let mut octx = format::output(&output_path)?;
-    let mut transcoder = transcoder(&mut ictx, &mut octx, out_codec, out_sample_rate, out_bitrate)?;
+    let mut transcoder = transcoder(
+        &mut ictx,
+        &mut octx,
+        out_codec,
+        out_sample_rate,
+        out_bitrate,
+    )?;
 
     let mut metadata = ictx.metadata().to_owned();
     if embed_cover_art {
-        // for when cover art is embedded as a mpeg, otherwise its already in metadata tags, so will get copied
         if let Some(mut cover_art) = file.ff_get_album_art().ok().flatten() {
+            let reader = ImageReader::new(Cursor::new(cover_art.clone()))
+                .with_guessed_format()
+                .unwrap();
+            let decoded = reader.decode().unwrap();
+
+            let mut width = decoded.width();
+            let mut height = decoded.height();
+
             if resize_cover_art {
-                let reader = ImageReader::new(Cursor::new(cover_art.clone())).with_guessed_format().unwrap();
-                let resized = reader.decode().unwrap().thumbnail(cover_art_size, cover_art_size);
+                let resized = decoded.thumbnail(cover_art_size, cover_art_size);
                 cover_art.clear();
-                resized.write_to(&mut Cursor::new(&mut cover_art), image::ImageFormat::Jpeg).unwrap();
+                resized
+                    .write_to(&mut Cursor::new(&mut cover_art), image::ImageFormat::Jpeg)
+                    .unwrap();
+
+                width = cover_art_size;
+                height = cover_art_size;
             }
 
-            let mimetype: String = image::guess_format(&cover_art)
+            let mimetype = image::guess_format(&cover_art)
                 .unwrap()
                 .to_mime_type()
                 .to_string();
-            let block = construct_flac_picture_block(3, &mimetype, "Front cover", &cover_art);
 
-            let cover_art_string = BASE64_STANDARD.encode(block);
-            metadata.set("METADATA_BLOCK_PICTURE", &cover_art_string);
+            if *out_codec == AudioCodec::FLAC {
+                let block = construct_flac_picture_block(3, &mimetype, "Front cover", &cover_art);
+
+                let cover_art_string = BASE64_STANDARD.encode(block);
+                metadata.set("METADATA_BLOCK_PICTURE", &cover_art_string);
+            } else if *out_codec == AudioCodec::AAC {
+                // i give up trying to do this in safe rust code
+                let cover_stream = unsafe { avformat_new_stream(octx.as_mut_ptr(), ptr::null()) };
+                if cover_stream.is_null() {
+                    return Err(ffmpeg_next::Error::Unknown);
+                }
+
+                unsafe {
+                    let par = (*cover_stream).codecpar;
+                    (*par).codec_type = ffmpeg_next::ffi::AVMediaType::AVMEDIA_TYPE_VIDEO;
+                    (*par).codec_id = match mimetype.as_str() {
+                        "image/png" => ffmpeg_next::ffi::AVCodecID::AV_CODEC_ID_PNG,
+                        _ => ffmpeg_next::ffi::AVCodecID::AV_CODEC_ID_MJPEG,
+                    };
+                    (*par).codec_tag = match mimetype.as_str() {
+                        "image/png" => u32::from_be_bytes(*b"png "),
+                        _ => u32::from_be_bytes(*b"jpeg"),
+                    };
+                    (*par).extradata = ptr::null_mut();
+                    (*par).extradata_size = 0;
+                    (*par).width = width as i32;
+                    (*par).height = height as i32;
+
+                    (*cover_stream).disposition =
+                        ffmpeg_next::ffi::AV_DISPOSITION_ATTACHED_PIC as i32;
+
+                    let data = av_malloc(cover_art.len()) as *mut u8;
+                    if data.is_null() {
+                        return Err(ffmpeg_next::Error::Bug);
+                    }
+                    ptr::copy_nonoverlapping(cover_art.as_ptr(), data, cover_art.len());
+
+                    let pkt = &mut (*cover_stream).attached_pic;
+                    let ret = av_packet_from_data(pkt, data, cover_art.len() as i32);
+                    if ret < 0 {
+                        return Err(ffmpeg_next::Error::Bug);
+                    }
+                    pkt.stream_index = (*cover_stream).index;
+                    pkt.flags |= ffmpeg_next::ffi::AV_PKT_FLAG_KEY;
+
+                    let key = std::ffi::CString::new("title").unwrap();
+                    let val = std::ffi::CString::new("Album Art").unwrap();
+                    av_dict_set(&mut (*cover_stream).metadata, key.as_ptr(), val.as_ptr(), 0);
+                    let key = std::ffi::CString::new("comment").unwrap();
+                    let val = std::ffi::CString::new("Cover (front)").unwrap();
+                    av_dict_set(&mut (*cover_stream).metadata, key.as_ptr(), val.as_ptr(), 0);
+                }
+            }
         }
     }
 
@@ -280,6 +352,13 @@ pub fn convert_file(
 
     transcoder.send_eof_to_encoder();
     transcoder.receive_and_process_encoded_packets(&mut octx);
+
+    println!("---");
+    unsafe {
+        octx.streams().for_each(|s| {
+            println!("{:#?}", *s.as_ptr());
+        });
+    }
 
     octx.write_trailer().unwrap();
 
