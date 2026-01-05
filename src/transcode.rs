@@ -4,9 +4,9 @@ use std::{io::Cursor, ptr};
 use base64::prelude::*;
 use byteorder::{BigEndian, WriteBytesExt};
 use ffmpeg_next::ffi::{
-    av_dict_set, av_init_packet, av_malloc, av_write_frame, avformat_new_stream,
+    av_dict_set, av_init_packet, av_malloc, av_write_frame, av_frame_unref, avformat_new_stream,
 };
-use ffmpeg_next::{codec, ffi::av_frame_unref, filter, format, frame, media};
+use ffmpeg_next::{codec, filter, format, frame, media};
 use image::ImageReader;
 
 use crate::models::audio_file::{self, AudioCodec, AudioContainer, AudioFile, AudioSampleRate};
@@ -282,7 +282,7 @@ pub fn convert_file(
 
                 let cover_art_string = BASE64_STANDARD.encode(block);
                 metadata.set("METADATA_BLOCK_PICTURE", &cover_art_string);
-            } else if *out_codec == AudioCodec::MP3 {
+            } else if *out_codec == AudioCodec::AAC || *out_codec == AudioCodec::MP3 {
                 let cover_stream = unsafe { avformat_new_stream(octx.as_mut_ptr(), ptr::null()) };
                 if cover_stream.is_null() {
                     return Err(ffmpeg_next::Error::Unknown);
@@ -304,6 +304,13 @@ pub fn convert_file(
 
                     (*cover_stream).disposition =
                         ffmpeg_next::ffi::AV_DISPOSITION_ATTACHED_PIC as i32;
+
+                    let key = std::ffi::CString::new("title").unwrap();
+                    let val = std::ffi::CString::new("Album Art").unwrap();
+                    av_dict_set(&mut (*cover_stream).metadata, key.as_ptr(), val.as_ptr(), 0);
+                    let key = std::ffi::CString::new("comment").unwrap();
+                    let val = std::ffi::CString::new("Cover (front)").unwrap();
+                    av_dict_set(&mut (*cover_stream).metadata, key.as_ptr(), val.as_ptr(), 0);
                 }
             }
         }
@@ -333,7 +340,7 @@ pub fn convert_file(
     transcoder.receive_and_process_encoded_packets(&mut octx);
 
     if embed_cover_art {
-        if *out_codec == AudioCodec::MP3 {
+        if *out_codec == AudioCodec::AAC || *out_codec == AudioCodec::MP3 {
             unsafe {
                 let cover_stream: *mut ffmpeg_next::ffi::AVStream =
                     octx.stream(1).unwrap().as_ptr().cast_mut();
