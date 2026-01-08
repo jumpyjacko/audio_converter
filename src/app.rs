@@ -65,6 +65,8 @@ pub struct AudioConverterApp {
     // Interaction
     #[serde(skip)]
     table_selections: HashSet<usize>,
+    #[serde(skip)]
+    first_selection: Option<usize>,
 
     pub settings: Settings,
 }
@@ -81,6 +83,7 @@ impl Default for AudioConverterApp {
             tasks_manager: TasksManager::new(),
 
             table_selections: HashSet::new(),
+            first_selection: None,
 
             settings: Settings {
                 app_theme: AppTheme::System,
@@ -250,18 +253,29 @@ impl AudioConverterApp {
 
         if let Some(i) = clicked_row {
             ui.input(|input| {
+                if self.first_selection.is_none() {
+                    self.first_selection = Some(i);
+                }
+
                 if input.modifiers.command {
                     if self.table_selections.contains(&i) {
                         self.table_selections.remove(&i);
                     } else {
                         self.table_selections.insert(i);
                     }
+                } else if self.first_selection.is_some() && input.modifiers.shift {
+                    self.table_selections.clear();
+                    if let Some(start) = self.first_selection {
+                        self.table_selections.extend(start.min(i)..=start.max(i));
+                    }
                 } else {
                     if self.table_selections.len() == 1 && self.table_selections.contains(&i) {
                         self.table_selections.clear();
+                        self.first_selection = None;
                     } else {
                         self.table_selections.clear();
                         self.table_selections.insert(i);
+                        self.first_selection = Some(i);
                     }
                 }
             });
