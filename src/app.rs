@@ -67,6 +67,8 @@ pub struct AudioConverterApp {
     table_selections: HashSet<usize>,
     #[serde(skip)]
     first_selection: Option<usize>,
+    #[serde(skip)]
+    last_selection: Option<usize>,
 
     pub settings: Settings,
 }
@@ -84,6 +86,7 @@ impl Default for AudioConverterApp {
 
             table_selections: HashSet::new(),
             first_selection: None,
+            last_selection: None,
 
             settings: Settings {
                 app_theme: AppTheme::System,
@@ -252,11 +255,11 @@ impl AudioConverterApp {
             });
 
         if let Some(i) = clicked_row {
+            if self.first_selection.is_none() {
+                self.first_selection = Some(i);
+            }
+            self.last_selection = Some(i);
             ui.input(|input| {
-                if self.first_selection.is_none() {
-                    self.first_selection = Some(i);
-                }
-
                 if input.modifiers.command {
                     if self.table_selections.contains(&i) {
                         self.table_selections.remove(&i);
@@ -271,12 +274,16 @@ impl AudioConverterApp {
                 } else {
                     if self.table_selections.len() == 1 && self.table_selections.contains(&i) {
                         self.table_selections.clear();
-                        self.first_selection = None;
                     } else {
                         self.table_selections.clear();
                         self.table_selections.insert(i);
                         self.first_selection = Some(i);
                     }
+                }
+
+                if self.table_selections.is_empty() {
+                    self.first_selection = None;
+                    self.last_selection = None;
                 }
             });
             self.app_state.cover_art_rx = Some(self.app_state.files[i].load_album_art()); // refresh cover art TODO: move out from here?
@@ -626,7 +633,7 @@ impl AudioConverterApp {
         let file = self
             .app_state
             .files
-            .get(*self.table_selections.iter().last().unwrap())
+            .get(self.last_selection.unwrap())
             .unwrap();
 
         egui::Window::new("File information")
