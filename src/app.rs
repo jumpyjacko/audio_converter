@@ -2,7 +2,7 @@ use egui::{
     Vec2,
     epaint::text::{FontInsert, InsertFontFamily},
 };
-use std::sync::mpsc;
+use std::{collections::HashSet, sync::mpsc};
 
 use crate::{
     models::audio_file::{AlbumArtError, AudioCodec, AudioContainer, AudioFile, AudioSampleRate},
@@ -64,7 +64,11 @@ pub struct AudioConverterApp {
 
     // Interaction
     #[serde(skip)]
-    table_selection: Option<usize>,
+    table_selections: HashSet<usize>,
+    #[serde(skip)]
+    first_selection: Option<usize>,
+    #[serde(skip)]
+    last_selection: Option<usize>,
 
     pub settings: Settings,
 }
@@ -80,7 +84,9 @@ impl Default for AudioConverterApp {
             },
             tasks_manager: TasksManager::new(),
 
-            table_selection: None,
+            table_selections: HashSet::new(),
+            first_selection: None,
+            last_selection: None,
 
             settings: Settings {
                 app_theme: AppTheme::System,
@@ -200,6 +206,7 @@ impl AudioConverterApp {
             .max_scroll_height(available_height);
 
         table = table.sense(egui::Sense::click());
+        let mut clicked_row: Option<usize> = None;
 
         table
             .header(20.0, |mut header| {
@@ -220,11 +227,9 @@ impl AudioConverterApp {
                 });
             })
             .body(|mut body| {
-                let mut clicked_row: Option<usize> = None;
-
                 for file in &self.app_state.files {
                     body.row(text_height, |mut row| {
-                        row.set_selected(self.table_selection == Some(row.index()));
+                        row.set_selected(self.table_selections.contains(&row.index()));
 
                         row.col(|ui| {
                             ui.label(file.track.as_deref().unwrap_or(""));
@@ -247,19 +252,41 @@ impl AudioConverterApp {
                         }
                     });
                 }
+            });
 
-                if let Some(i) = clicked_row {
-                    self.toggle_row_selection(i);
-                    self.app_state.cover_art_rx = Some(self.app_state.files[i].load_album_art()); // refresh cover art TODO: move out from here?
+        if let Some(i) = clicked_row {
+            if self.first_selection.is_none() {
+                self.first_selection = Some(i);
+            }
+            self.last_selection = Some(i);
+            ui.input(|input| {
+                if input.modifiers.command {
+                    if self.table_selections.contains(&i) {
+                        self.table_selections.remove(&i);
+                    } else {
+                        self.table_selections.insert(i);
+                    }
+                } else if self.first_selection.is_some() && input.modifiers.shift {
+                    self.table_selections.clear();
+                    if let Some(start) = self.first_selection {
+                        self.table_selections.extend(start.min(i)..=start.max(i));
+                    }
+                } else {
+                    if self.table_selections.len() == 1 && self.table_selections.contains(&i) {
+                        self.table_selections.clear();
+                    } else {
+                        self.table_selections.clear();
+                        self.table_selections.insert(i);
+                        self.first_selection = Some(i);
+                    }
+                }
+
+                if self.table_selections.is_empty() {
+                    self.first_selection = None;
+                    self.last_selection = None;
                 }
             });
-    }
-
-    fn toggle_row_selection(&mut self, row_index: usize) {
-        if self.table_selection == Some(row_index) {
-            self.table_selection = None;
-        } else {
-            self.table_selection = Some(row_index);
+            self.app_state.cover_art_rx = Some(self.app_state.files[i].load_album_art()); // refresh cover art TODO: move out from here?
         }
     }
 
@@ -606,7 +633,7 @@ impl AudioConverterApp {
         let file = self
             .app_state
             .files
-            .get(self.table_selection.unwrap())
+            .get(self.last_selection.unwrap())
             .unwrap();
 
         egui::Window::new("File information")
@@ -749,7 +776,7 @@ impl eframe::App for AudioConverterApp {
             }
         });
 
-        if self.table_selection.is_some() {
+        if !self.table_selections.is_empty() {
             self.file_info_popup(ctx);
         }
 
