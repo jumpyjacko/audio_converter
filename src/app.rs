@@ -250,7 +250,7 @@ impl AudioConverterApp {
 
         if let Some(i) = clicked_row {
             ui.input(|input| {
-                if input.modifiers.ctrl {
+                if input.modifiers.command {
                     if self.table_selections.contains(&i) {
                         self.table_selections.remove(&i);
                     } else {
