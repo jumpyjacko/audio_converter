@@ -200,6 +200,7 @@ impl AudioConverterApp {
             .max_scroll_height(available_height);
 
         table = table.sense(egui::Sense::click());
+        let mut clicked_row: Option<usize> = None;
 
         table
             .header(20.0, |mut header| {
@@ -220,8 +221,6 @@ impl AudioConverterApp {
                 });
             })
             .body(|mut body| {
-                let mut clicked_row: Option<usize> = None;
-
                 for file in &self.app_state.files {
                     body.row(text_height, |mut row| {
                         row.set_selected(self.table_selections.contains(&row.index()));
@@ -247,17 +246,27 @@ impl AudioConverterApp {
                         }
                     });
                 }
+            });
 
-                if let Some(i) = clicked_row {
+        if let Some(i) = clicked_row {
+            ui.input(|input| {
+                if input.modifiers.ctrl {
                     if self.table_selections.contains(&i) {
                         self.table_selections.remove(&i);
+                    } else {
+                        self.table_selections.insert(i);
+                    }
+                } else {
+                    if self.table_selections.len() == 1 && self.table_selections.contains(&i) {
+                        self.table_selections.clear();
                     } else {
                         self.table_selections.clear();
                         self.table_selections.insert(i);
                     }
-                    self.app_state.cover_art_rx = Some(self.app_state.files[i].load_album_art()); // refresh cover art TODO: move out from here?
                 }
             });
+            self.app_state.cover_art_rx = Some(self.app_state.files[i].load_album_art()); // refresh cover art TODO: move out from here?
+        }
     }
 
     fn settings_list(&mut self, ui: &mut egui::Ui) {
