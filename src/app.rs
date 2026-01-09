@@ -762,6 +762,15 @@ impl eframe::App for AudioConverterApp {
                     }
                 }
 
+                if !self.app_state.files.is_empty() {
+                    if ui.button("Clear all").clicked()
+                    {
+                        self.app_state.files.clear();
+                        self.table_selections.clear();
+                        self.first_selection = None;
+                        self.last_selection = None;
+                    }
+                }
             });
 
             egui::ScrollArea::horizontal().show(ui, |ui| {
