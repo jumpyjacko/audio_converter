@@ -1,5 +1,5 @@
 use egui::{
-    Key, Vec2,
+    Key, Modifiers, Vec2,
     epaint::text::{FontInsert, InsertFontFamily},
 };
 use std::{collections::HashSet, sync::mpsc};
@@ -805,7 +805,7 @@ impl eframe::App for AudioConverterApp {
             self.task_queue_window(ctx);
         }
 
-        ctx.input(|input| {
+        ctx.input_mut(|input| {
             if input.key_pressed(Key::Delete) {
                 if !self.table_selections.is_empty() {
                     self.app_state.files = self
@@ -821,6 +821,17 @@ impl eframe::App for AudioConverterApp {
                     self.table_selections.clear();
                     self.first_selection = None;
                     self.last_selection = None;
+                }
+            }
+
+            // select all
+            if !self.app_state.files.is_empty() {
+                if input.consume_key(Modifiers::CTRL, Key::A) {
+                    self.table_selections.clear();
+                    self.table_selections.extend(0..self.app_state.files.len());
+                    self.first_selection = Some(0);
+                    self.last_selection = Some(0);
+                    self.app_state.cover_art_rx = Some(self.app_state.files[0].load_album_art()); // refresh cover art
                 }
             }
         });
