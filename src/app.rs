@@ -1,5 +1,5 @@
 use egui::{
-    Vec2,
+    Key, Vec2,
     epaint::text::{FontInsert, InsertFontFamily},
 };
 use std::{collections::HashSet, sync::mpsc};
@@ -804,5 +804,25 @@ impl eframe::App for AudioConverterApp {
         if self.app_state.is_transcoding {
             self.task_queue_window(ctx);
         }
+
+        ctx.input(|input| {
+            if input.key_pressed(Key::Delete) {
+                if !self.table_selections.is_empty() {
+                    self.app_state.files = self
+                        .app_state
+                        .files
+                        .clone()
+                        .into_iter()
+                        .enumerate()
+                        .filter(|(i, _)| !self.table_selections.contains(i))
+                        .map(|(_, f)| f)
+                        .collect();
+
+                    self.table_selections.clear();
+                    self.first_selection = None;
+                    self.last_selection = None;
+                }
+            }
+        });
     }
 }
