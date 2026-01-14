@@ -226,9 +226,12 @@ impl AudioConverterApp {
                     ui.strong("File Path");
                 });
             })
-            .body(|mut body| {
-                for file in &self.app_state.files {
-                    body.row(text_height, |mut row| {
+            .body(|body| {
+                let files = &self.app_state.files;
+                let row_height = text_height;
+                let num_rows = files.len();
+                body.rows(row_height, num_rows, |mut row| {
+                    if let Some(file) = files.get(row.index()) {
                         row.set_selected(self.table_selections.contains(&row.index()));
 
                         row.col(|ui| {
@@ -250,8 +253,8 @@ impl AudioConverterApp {
                         if row.response().clicked() {
                             clicked_row = Some(row.index());
                         }
-                    });
-                }
+                    }
+                });
             });
 
         if let Some(i) = clicked_row {
