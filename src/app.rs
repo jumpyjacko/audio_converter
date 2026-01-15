@@ -915,16 +915,15 @@ fn large_album_art_viewer(state: &mut AppState, ctx: &egui::Context) {
     }
 
     if let Some(texture) = &state.lg_cover_art {
-        let screen = ctx.screen_rect();
         let margin = 32.0;
 
-        let available = screen.shrink(margin);
+        let available = content_rect.shrink(margin);
         let tex_size = texture.size_vec2();
 
         let scale = (available.width() / tex_size.x).min(available.height() / tex_size.y);
 
         let size = tex_size * scale;
-        let dest_rect = egui::Rect::from_center_size(screen.center(), size);
+        let dest_rect = egui::Rect::from_center_size(content_rect.center(), size);
 
         painter.image(
             texture.id(),
