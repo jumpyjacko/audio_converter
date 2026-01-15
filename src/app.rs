@@ -1,5 +1,7 @@
 use egui::{
-    Key, Modifiers, Rect, Sense, Vec2, epaint::text::{FontInsert, InsertFontFamily}, pos2, vec2
+    Key, Modifiers, Sense, Vec2,
+    epaint::text::{FontInsert, InsertFontFamily},
+    pos2,
 };
 use std::{collections::HashSet, sync::mpsc};
 
@@ -888,8 +890,7 @@ fn large_album_art_viewer(state: &mut AppState, ctx: &egui::Context) {
     if let Some(rx) = &state.lg_cover_art_rx {
         match rx.try_recv() {
             Ok(Ok(image)) => {
-                let texture =
-                    ctx.load_texture("lg_cover_art", image, egui::TextureOptions::LINEAR);
+                let texture = ctx.load_texture("lg_cover_art", image, egui::TextureOptions::LINEAR);
 
                 state.lg_cover_art = Some(texture);
                 state.lg_cover_art_rx = None;
@@ -914,9 +915,17 @@ fn large_album_art_viewer(state: &mut AppState, ctx: &egui::Context) {
     }
 
     if let Some(texture) = &state.lg_cover_art {
-        let image_size = vec2(1000.0, 1000.0);
-        let center = content_rect.center();
-        let dest_rect = Rect::from_center_size(center, image_size);
+        let screen = ctx.screen_rect();
+        let margin = 32.0;
+
+        let available = screen.shrink(margin);
+        let tex_size = texture.size_vec2();
+
+        let scale = (available.width() / tex_size.x).min(available.height() / tex_size.y);
+
+        let size = tex_size * scale;
+        let dest_rect = egui::Rect::from_center_size(screen.center(), size);
+
         painter.image(
             texture.id(),
             dest_rect,
