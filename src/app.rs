@@ -1,14 +1,14 @@
 use egui::{
-    Key, Modifiers, Sense, Vec2,
+    Key, Modifiers,
     epaint::text::{FontInsert, InsertFontFamily},
-    pos2,
 };
 use std::{collections::HashSet, sync::mpsc};
 
-use crate::{
-    models::audio_file::{AlbumArtError, AudioCodec, AudioContainer, AudioFile, AudioSampleRate},
-    tasks_manager::TasksManager,
-};
+use crate::{models::audio_file::{
+    AlbumArtError, AudioCodec, AudioContainer, AudioFile, AudioSampleRate,
+}, ui::file_info::file_info_popup};
+use crate::tasks_manager::TasksManager;
+use crate::ui::task_queue::task_queue_window;
 
 #[derive(serde::Deserialize, serde::Serialize, PartialEq, Clone)]
 pub enum OutputGrouping {
@@ -48,34 +48,30 @@ pub struct Settings {
 }
 
 pub struct AppState {
-    files: Vec<AudioFile>,
-    cover_art_rx: Option<mpsc::Receiver<Result<egui::ColorImage, AlbumArtError>>>,
-    cover_art: Option<egui::TextureHandle>,
+    pub files: Vec<AudioFile>,
+    pub cover_art_rx: Option<mpsc::Receiver<Result<egui::ColorImage, AlbumArtError>>>,
+    pub cover_art: Option<egui::TextureHandle>,
 
-    lg_cover_art_rx: Option<mpsc::Receiver<Result<egui::ColorImage, AlbumArtError>>>,
-    lg_cover_art: Option<egui::TextureHandle>,
-    showing_lg_art: bool,
+    pub lg_cover_art_rx: Option<mpsc::Receiver<Result<egui::ColorImage, AlbumArtError>>>,
+    pub lg_cover_art: Option<egui::TextureHandle>,
+    pub showing_lg_art: bool,
 
-    is_transcoding: bool,
+    pub is_transcoding: bool,
+
+    pub table_selections: HashSet<usize>,
+    pub first_selection: Option<usize>,
+    pub last_selection: Option<usize>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)]
 pub struct AudioConverterApp {
-    #[serde(skip)]
-    app_state: AppState,
+    pub settings: Settings,
+
     #[serde(skip)]
     tasks_manager: TasksManager,
-
-    // Interaction
     #[serde(skip)]
-    table_selections: HashSet<usize>,
-    #[serde(skip)]
-    first_selection: Option<usize>,
-    #[serde(skip)]
-    last_selection: Option<usize>,
-
-    pub settings: Settings,
+    app_state: AppState,
 }
 
 impl Default for AudioConverterApp {
@@ -89,12 +85,11 @@ impl Default for AudioConverterApp {
                 lg_cover_art: None,
                 showing_lg_art: false,
                 is_transcoding: false,
+                table_selections: HashSet::new(),
+                first_selection: None,
+                last_selection: None,
             },
             tasks_manager: TasksManager::new(),
-
-            table_selections: HashSet::new(),
-            first_selection: None,
-            last_selection: None,
 
             settings: Settings {
                 app_theme: AppTheme::System,
@@ -240,7 +235,7 @@ impl AudioConverterApp {
                 let num_rows = files.len();
                 body.rows(row_height, num_rows, |mut row| {
                     if let Some(file) = files.get(row.index()) {
-                        row.set_selected(self.table_selections.contains(&row.index()));
+                        row.set_selected(self.app_state.table_selections.contains(&row.index()));
 
                         row.col(|ui| {
                             ui.label(file.track.as_deref().unwrap_or(""));
@@ -266,35 +261,39 @@ impl AudioConverterApp {
             });
 
         if let Some(i) = clicked_row {
-            if self.first_selection.is_none() {
-                self.first_selection = Some(i);
+            if self.app_state.first_selection.is_none() {
+                self.app_state.first_selection = Some(i);
             }
-            self.last_selection = Some(i);
+            self.app_state.last_selection = Some(i);
             ui.input(|input| {
                 if input.modifiers.command {
-                    if self.table_selections.contains(&i) {
-                        self.table_selections.remove(&i);
+                    if self.app_state.table_selections.contains(&i) {
+                        self.app_state.table_selections.remove(&i);
                     } else {
-                        self.table_selections.insert(i);
+                        self.app_state.table_selections.insert(i);
                     }
-                } else if self.first_selection.is_some() && input.modifiers.shift {
-                    self.table_selections.clear();
-                    if let Some(start) = self.first_selection {
-                        self.table_selections.extend(start.min(i)..=start.max(i));
+                } else if self.app_state.first_selection.is_some() && input.modifiers.shift {
+                    self.app_state.table_selections.clear();
+                    if let Some(start) = self.app_state.first_selection {
+                        self.app_state
+                            .table_selections
+                            .extend(start.min(i)..=start.max(i));
                     }
                 } else {
-                    if self.table_selections.len() == 1 && self.table_selections.contains(&i) {
-                        self.table_selections.clear();
+                    if self.app_state.table_selections.len() == 1
+                        && self.app_state.table_selections.contains(&i)
+                    {
+                        self.app_state.table_selections.clear();
                     } else {
-                        self.table_selections.clear();
-                        self.table_selections.insert(i);
-                        self.first_selection = Some(i);
+                        self.app_state.table_selections.clear();
+                        self.app_state.table_selections.insert(i);
+                        self.app_state.first_selection = Some(i);
                     }
                 }
 
-                if self.table_selections.is_empty() {
-                    self.first_selection = None;
-                    self.last_selection = None;
+                if self.app_state.table_selections.is_empty() {
+                    self.app_state.first_selection = None;
+                    self.app_state.last_selection = None;
                 }
             });
             self.app_state.cover_art_rx = Some(self.app_state.files[i].load_album_art(Some(300))); // refresh cover art TODO: move out from here?
@@ -603,121 +602,6 @@ impl AudioConverterApp {
             }
         }
     }
-
-    fn task_queue_window(&mut self, ctx: &egui::Context) {
-        use egui::Align2;
-
-        egui::Window::new("Task Queue")
-            .anchor(Align2::LEFT_BOTTOM, egui::vec2(10.0, -10.0))
-            .movable(false)
-            .resizable(false)
-            .title_bar(false)
-            .show(ctx, |ui| {
-                ui.horizontal(|ui| {
-                    ui.heading("Queue");
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.spinner();
-                    })
-                });
-                ui.label(format!(
-                    "Tasks remaining: {}",
-                    self.tasks_manager.queue.len() + self.tasks_manager.active_tasks.len()
-                ));
-                ui.separator();
-
-                for task in &self.tasks_manager.active_tasks {
-                    ui.horizontal(|ui| {
-                        ui.label(format!(
-                            "{} - {} on {}",
-                            task.file.artist.clone().unwrap_or(NO_ARTIST.to_string()),
-                            task.file.title.clone().unwrap_or(NO_TITLE.to_string()),
-                            task.file.album.clone().unwrap_or(NO_ALBUM.to_string())
-                        ));
-                    });
-                }
-            });
-    }
-
-    fn file_info_popup(&mut self, ctx: &egui::Context) {
-        use egui::Align2;
-
-        let state = &mut self.app_state;
-        let file = state
-            .files
-            .get(self.last_selection.unwrap())
-            .unwrap().clone();
-
-        egui::Window::new("File information")
-            .min_width(300.0)
-            .max_width(300.0)
-            .anchor(Align2::RIGHT_BOTTOM, egui::vec2(-10.0, -10.0))
-            .resizable(false)
-            .movable(false)
-            .default_open(false)
-            .show(ctx, |ui| {
-                ui.heading(file.title.clone().unwrap_or(NO_TITLE.to_string()));
-                egui::Grid::new("detailed_file_info")
-                    .num_columns(2)
-                    .striped(true)
-                    .show(ui, |ui| {
-                        ui.label("Artist:");
-                        ui.label(file.artist.clone().unwrap_or(NO_ARTIST.to_string()));
-                        ui.end_row();
-
-                        ui.label("Album:");
-                        ui.label(file.album.clone().unwrap_or(NO_ALBUM.to_string()));
-                        ui.end_row();
-
-                        ui.label("File path:");
-                        ui.add(
-                            egui::Label::new(file.path.clone().to_string_lossy().to_string())
-                                .wrap(),
-                        );
-                        ui.end_row();
-                    });
-
-                ui.separator();
-
-                if let Some(rx) = &state.cover_art_rx {
-                    match rx.try_recv() {
-                        Ok(Ok(image)) => {
-                            let texture =
-                                ctx.load_texture("cover_art", image, egui::TextureOptions::LINEAR);
-
-                            state.cover_art = Some(texture);
-                            state.cover_art_rx = None;
-
-                            ctx.request_repaint();
-                        }
-                        Ok(Err(_)) | Err(std::sync::mpsc::TryRecvError::Disconnected) => {
-                            state.cover_art = None;
-                            state.cover_art_rx = None;
-                        }
-                        Err(mpsc::TryRecvError::Empty) => {
-                            let _ = ui.label("Loading image...");
-                            state.cover_art = None;
-                        }
-                    }
-                }
-
-                if let Some(texture) = &state.cover_art {
-                    let response = ui.add(
-                        egui::Image::from_texture(texture)
-                            .fit_to_fraction(Vec2::ONE)
-                            .max_width(300.0)
-                            .corner_radius(5)
-                            .sense(Sense::CLICK),
-                    );
-
-                    if response.clicked() {
-                        state.lg_cover_art_rx = Some(file.load_album_art(None));
-                        state.showing_lg_art = true;
-                    }
-                }
-            });
-
-        large_album_art_viewer(state, ctx);
-    }
 }
 
 impl eframe::App for AudioConverterApp {
@@ -778,9 +662,9 @@ impl eframe::App for AudioConverterApp {
                     if ui.button("Clear all").clicked()
                     {
                         self.app_state.files.clear();
-                        self.table_selections.clear();
-                        self.first_selection = None;
-                        self.last_selection = None;
+                        self.app_state.table_selections.clear();
+                        self.app_state.first_selection = None;
+                        self.app_state.last_selection = None;
                     }
                 }
             });
@@ -797,8 +681,8 @@ impl eframe::App for AudioConverterApp {
             }
         });
 
-        if !self.table_selections.is_empty() {
-            self.file_info_popup(ctx);
+        if !self.app_state.table_selections.is_empty() {
+            file_info_popup(&mut self.app_state, ctx);
         }
 
         self.preview_dropped_files(ctx);
@@ -820,106 +704,39 @@ impl eframe::App for AudioConverterApp {
         });
 
         if self.app_state.is_transcoding {
-            self.task_queue_window(ctx);
+            task_queue_window(&mut self.tasks_manager, ctx);
         }
 
         ctx.input_mut(|input| {
             if input.key_pressed(Key::Delete) {
-                if !self.table_selections.is_empty() {
+                if !self.app_state.table_selections.is_empty() {
                     self.app_state.files = self
                         .app_state
                         .files
                         .clone()
                         .into_iter()
                         .enumerate()
-                        .filter(|(i, _)| !self.table_selections.contains(i))
+                        .filter(|(i, _)| !self.app_state.table_selections.contains(i))
                         .map(|(_, f)| f)
                         .collect();
 
-                    self.table_selections.clear();
-                    self.first_selection = None;
-                    self.last_selection = None;
+                    self.app_state.table_selections.clear();
+                    self.app_state.first_selection = None;
+                    self.app_state.last_selection = None;
                 }
             }
 
             // select all
             if !self.app_state.files.is_empty() {
                 if input.consume_key(Modifiers::CTRL, Key::A) {
-                    self.table_selections.clear();
-                    self.table_selections.extend(0..self.app_state.files.len());
-                    self.first_selection = Some(0);
-                    self.last_selection = Some(0);
-                    self.app_state.cover_art_rx = Some(self.app_state.files[0].load_album_art(Some(300))); // refresh cover art
+                    self.app_state.table_selections.clear();
+                    self.app_state.table_selections.extend(0..self.app_state.files.len());
+                    self.app_state.first_selection = Some(0);
+                    self.app_state.last_selection = Some(0);
+                    self.app_state.cover_art_rx =
+                        Some(self.app_state.files[0].load_album_art(Some(300))); // refresh cover art
                 }
             }
         });
-    }
-}
-
-fn large_album_art_viewer(state: &mut AppState, ctx: &egui::Context) {
-    use egui::{Align2, Color32, Id, LayerId, Order, TextStyle};
-
-    if ctx.input(|i| i.key_pressed(Key::Escape)) {
-        state.showing_lg_art = false;
-        state.lg_cover_art_rx = None;
-        state.lg_cover_art = None;
-    }
-
-    if !state.showing_lg_art {
-        return;
-    }
-
-    let painter = ctx.layer_painter(LayerId::new(
-        Order::Foreground,
-        Id::new("large_album_art_viewer"),
-    ));
-
-    let content_rect = ctx.content_rect();
-    painter.rect_filled(content_rect, 0.0, Color32::from_black_alpha(192));
-
-    if let Some(rx) = &state.lg_cover_art_rx {
-        match rx.try_recv() {
-            Ok(Ok(image)) => {
-                let texture = ctx.load_texture("lg_cover_art", image, egui::TextureOptions::LINEAR);
-
-                state.lg_cover_art = Some(texture);
-                state.lg_cover_art_rx = None;
-
-                ctx.request_repaint();
-            }
-            Ok(Err(_)) | Err(std::sync::mpsc::TryRecvError::Disconnected) => {
-                state.lg_cover_art = None;
-                state.lg_cover_art_rx = None;
-            }
-            Err(mpsc::TryRecvError::Empty) => {
-                let _ = painter.text(
-                    content_rect.center(),
-                    Align2::CENTER_CENTER,
-                    "Loading image...",
-                    TextStyle::Heading.resolve(&ctx.style()),
-                    Color32::WHITE,
-                );
-                state.lg_cover_art = None;
-            }
-        }
-    }
-
-    if let Some(texture) = &state.lg_cover_art {
-        let margin = 32.0;
-
-        let available = content_rect.shrink(margin);
-        let tex_size = texture.size_vec2();
-
-        let scale = (available.width() / tex_size.x).min(available.height() / tex_size.y);
-
-        let size = tex_size * scale;
-        let dest_rect = egui::Rect::from_center_size(content_rect.center(), size);
-
-        painter.image(
-            texture.id(),
-            dest_rect,
-            egui::Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
-            Color32::WHITE,
-        );
     }
 }

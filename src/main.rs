@@ -4,6 +4,7 @@ mod app;
 mod models;
 mod transcode;
 mod tasks_manager;
+mod ui;
 
 use app::AudioConverterApp;
 
