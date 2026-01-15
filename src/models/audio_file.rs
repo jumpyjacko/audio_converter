@@ -16,6 +16,8 @@ pub enum AlbumArtError {
 pub enum AudioFileError {
     NotAnAudioFile,
     NotADirectory,
+    NoExtension,
+    InputError,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq, Eq, Clone)]
@@ -66,11 +68,13 @@ impl Default for AudioFile {
 
 impl AudioFile {
     pub fn new(path: PathBuf) -> Result<Self, AudioFileError> {
-        if !ALLOWED_INPUT_TYPES.contains(&path.extension().unwrap().to_str().unwrap()) {
+        let Some(path_ext) = &path.extension() else { return Err(AudioFileError::NoExtension) };
+        let Some(path_ext) = &path_ext.to_str() else { return Err(AudioFileError::InputError) };
+        if !ALLOWED_INPUT_TYPES.contains(path_ext) {
             return Err(AudioFileError::NotAnAudioFile);
         }
 
-        let input_ctx = format::input(&path).expect("Invalid path provided to FFmpeg");
+        let input_ctx = format::input(&path).expect("Invalid path provided to FFmpeg"); // TODO: loading metadata makes up all the loading time, its instant without it
 
         return Ok(Self {
             path: path,
@@ -93,13 +97,13 @@ impl AudioFile {
                 let audio_file = match AudioFile::new(file.path()) {
                     Ok(af) => af,
                     Err(AudioFileError::NotAnAudioFile) => continue,
-                    Err(_) => panic!("hdwgh?"),
+                    Err(_) => panic!("hdwgh?"), // FIX: real error, happens on hidden folders?
                 };
                 files.push(audio_file);
             }
         }
 
-        files.sort_unstable_by_key(|f| f.track.as_deref().and_then(parse_track_string));
+        files.sort_unstable_by_key(|f| f.track.as_deref().and_then(parse_track_string)); // TODO: this adds like 4 seconds on a 1.7k file load
 
         return Ok(files);
     }

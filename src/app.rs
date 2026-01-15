@@ -759,11 +759,7 @@ impl eframe::App for AudioConverterApp {
                         .pick_files()
                 {
                     for file in paths {
-                        let audio_file = match AudioFile::new(file) {
-                            Ok(af) => af,
-                            Err(_) => continue,
-                        };
-
+                        let audio_file = AudioFile::new(file).unwrap();
                         self.app_state.files.push(audio_file);
                     }
                 }
@@ -773,10 +769,7 @@ impl eframe::App for AudioConverterApp {
                         .pick_folders()
                 {
                     for directory in &paths {
-                        let mut files = match AudioFile::from_directory(directory) {
-                            Ok(f) => f,
-                            Err(_) => continue,
-                        };
+                        let mut files = AudioFile::from_directory(directory).unwrap();
                         self.app_state.files.append(&mut files);
                     }
                 }
@@ -810,21 +803,18 @@ impl eframe::App for AudioConverterApp {
 
         self.preview_dropped_files(ctx);
         ctx.input(|i| {
-            if !i.raw.dropped_files.is_empty() {
-                for file in &i.raw.dropped_files {
-                    if let Some(path) = &file.path {
-                        if path.is_dir() {
-                            let mut files = match AudioFile::from_directory(path) {
-                                Ok(f) => f,
-                                Err(_) => continue, // TODO: maybe consider actually error handling
-                            };
-                            self.app_state.files.append(&mut files);
-                        } else {
-                            self.app_state
-                                .files
-                                .push(AudioFile::new(path.clone()).unwrap()); // TODO: error handle
-                        }
-                    }
+            if i.raw.dropped_files.is_empty() {
+                return;
+            }
+            for file in &i.raw.dropped_files {
+                let Some(path) = &file.path else { continue };
+                if path.is_dir() {
+                    let mut files = AudioFile::from_directory(path).unwrap();
+                    self.app_state.files.append(&mut files);
+                } else {
+                    self.app_state
+                        .files
+                        .push(AudioFile::new(path.clone()).unwrap());
                 }
             }
         });
