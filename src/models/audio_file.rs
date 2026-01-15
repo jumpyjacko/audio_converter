@@ -16,6 +16,8 @@ pub enum AlbumArtError {
 pub enum AudioFileError {
     NotAnAudioFile,
     NotADirectory,
+    NoExtension,
+    InputError,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq, Eq, Clone)]
@@ -67,7 +69,9 @@ impl Default for AudioFile {
 impl AudioFile {
     pub fn new(path: PathBuf) -> Result<Self, AudioFileError> {
         // TODO: literally what is this? 
-        if !ALLOWED_INPUT_TYPES.contains(&path.extension().unwrap().to_str().unwrap()) {
+        let Some(path_ext) = &path.extension() else { return Err(AudioFileError::NoExtension) };
+        let Some(path_ext) = &path_ext.to_str() else { return Err(AudioFileError::InputError) };
+        if !ALLOWED_INPUT_TYPES.contains(path_ext) {
             return Err(AudioFileError::NotAnAudioFile);
         }
 
