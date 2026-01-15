@@ -867,7 +867,15 @@ impl eframe::App for AudioConverterApp {
 fn large_album_art_viewer(state: &mut AppState, ctx: &egui::Context) {
     use egui::{Align2, Color32, Id, LayerId, Order, TextStyle};
 
-    if !state.showing_lg_art { return; }
+    if ctx.input(|i| i.key_pressed(Key::Escape)) {
+        state.showing_lg_art = false;
+        state.lg_cover_art_rx = None;
+        state.lg_cover_art = None;
+    }
+
+    if !state.showing_lg_art {
+        return;
+    }
 
     let painter = ctx.layer_painter(LayerId::new(
         Order::Foreground,
