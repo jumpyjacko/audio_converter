@@ -66,7 +66,6 @@ impl Default for AudioFile {
 
 impl AudioFile {
     pub fn new(path: PathBuf) -> Result<Self, AudioFileError> {
-        // TODO: literally what is this? 
         if !ALLOWED_INPUT_TYPES.contains(&path.extension().unwrap().to_str().unwrap()) {
             return Err(AudioFileError::NotAnAudioFile);
         }
@@ -128,7 +127,10 @@ impl AudioFile {
         Ok(None)
     }
 
-    pub fn load_album_art(&self) -> mpsc::Receiver<Result<egui::ColorImage, AlbumArtError>> {
+    pub fn load_album_art(
+        &self,
+        size: Option<u32>,
+    ) -> mpsc::Receiver<Result<egui::ColorImage, AlbumArtError>> {
         let (tx, rx) = mpsc::channel();
         let path = self.path.clone();
 
@@ -143,11 +145,14 @@ impl AudioFile {
                 .flatten()
                 .ok_or(AlbumArtError::NotFound);
 
-            let decoded = match decode_thumbnail(&result.unwrap(), 300) {
+            let decoded = match decode_thumbnail(&result.unwrap(), size) {
                 Ok(image) => image,
                 Err(_) => return Err(AlbumArtError::DecodeFailed),
             };
-            let image = egui::ColorImage::from_rgba_unmultiplied([300, 300], &decoded);
+            let image = egui::ColorImage::from_rgba_unmultiplied(
+                [decoded.width() as usize, decoded.height() as usize],
+                &decoded,
+            );
 
             let _ = tx.send(Ok(image));
 
@@ -173,13 +178,20 @@ fn get_tag(ctx: &format::context::Input, key: &str) -> Option<String> {
 
 pub fn decode_thumbnail(
     bytes: &[u8],
-    size: u32,
+    size: Option<u32>,
 ) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, image::ImageError> {
     use image::ImageReader;
     use std::io::Cursor;
 
-    let reader = ImageReader::new(Cursor::new(bytes)).with_guessed_format()?;
-    let img = reader.decode()?.thumbnail_exact(size, size).to_rgba8();
+    let img = {
+        let reader = ImageReader::new(Cursor::new(bytes)).with_guessed_format()?;
+        let decoded = reader.decode()?;
+
+        match size {
+            Some(s) => decoded.thumbnail_exact(s, s).to_rgba8(),
+            None => decoded.to_rgba8(),
+        }
+    };
 
     Ok(img)
 }

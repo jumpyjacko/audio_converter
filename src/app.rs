@@ -1,6 +1,7 @@
 use egui::{
-    Key, Modifiers, Vec2,
+    Key, Modifiers, Sense, Vec2,
     epaint::text::{FontInsert, InsertFontFamily},
+    pos2,
 };
 use std::{collections::HashSet, sync::mpsc};
 
@@ -51,6 +52,10 @@ pub struct AppState {
     cover_art_rx: Option<mpsc::Receiver<Result<egui::ColorImage, AlbumArtError>>>,
     cover_art: Option<egui::TextureHandle>,
 
+    lg_cover_art_rx: Option<mpsc::Receiver<Result<egui::ColorImage, AlbumArtError>>>,
+    lg_cover_art: Option<egui::TextureHandle>,
+    showing_lg_art: bool,
+
     is_transcoding: bool,
 }
 
@@ -80,6 +85,9 @@ impl Default for AudioConverterApp {
                 files: Vec::new(),
                 cover_art_rx: None,
                 cover_art: None,
+                lg_cover_art_rx: None,
+                lg_cover_art: None,
+                showing_lg_art: false,
                 is_transcoding: false,
             },
             tasks_manager: TasksManager::new(),
@@ -289,7 +297,7 @@ impl AudioConverterApp {
                     self.last_selection = None;
                 }
             });
-            self.app_state.cover_art_rx = Some(self.app_state.files[i].load_album_art()); // refresh cover art TODO: move out from here?
+            self.app_state.cover_art_rx = Some(self.app_state.files[i].load_album_art(Some(300))); // refresh cover art TODO: move out from here?
         }
     }
 
@@ -633,11 +641,11 @@ impl AudioConverterApp {
     fn file_info_popup(&mut self, ctx: &egui::Context) {
         use egui::Align2;
 
-        let file = self
-            .app_state
+        let state = &mut self.app_state;
+        let file = state
             .files
             .get(self.last_selection.unwrap())
-            .unwrap();
+            .unwrap().clone();
 
         egui::Window::new("File information")
             .min_width(300.0)
@@ -670,37 +678,45 @@ impl AudioConverterApp {
 
                 ui.separator();
 
-                if let Some(rx) = &self.app_state.cover_art_rx {
+                if let Some(rx) = &state.cover_art_rx {
                     match rx.try_recv() {
                         Ok(Ok(image)) => {
                             let texture =
                                 ctx.load_texture("cover_art", image, egui::TextureOptions::LINEAR);
 
-                            self.app_state.cover_art = Some(texture);
-                            self.app_state.cover_art_rx = None;
+                            state.cover_art = Some(texture);
+                            state.cover_art_rx = None;
 
                             ctx.request_repaint();
                         }
                         Ok(Err(_)) | Err(std::sync::mpsc::TryRecvError::Disconnected) => {
-                            self.app_state.cover_art = None;
-                            self.app_state.cover_art_rx = None;
+                            state.cover_art = None;
+                            state.cover_art_rx = None;
                         }
                         Err(mpsc::TryRecvError::Empty) => {
                             let _ = ui.label("Loading image...");
-                            self.app_state.cover_art = None;
+                            state.cover_art = None;
                         }
                     }
                 }
 
-                if let Some(texture) = &self.app_state.cover_art {
-                    ui.add(
+                if let Some(texture) = &state.cover_art {
+                    let response = ui.add(
                         egui::Image::from_texture(texture)
                             .fit_to_fraction(Vec2::ONE)
                             .max_width(300.0)
-                            .corner_radius(5),
+                            .corner_radius(5)
+                            .sense(Sense::CLICK),
                     );
+
+                    if response.clicked() {
+                        state.lg_cover_art_rx = Some(file.load_album_art(None));
+                        state.showing_lg_art = true;
+                    }
                 }
             });
+
+        large_album_art_viewer(state, ctx);
     }
 }
 
@@ -843,9 +859,77 @@ impl eframe::App for AudioConverterApp {
                     self.table_selections.extend(0..self.app_state.files.len());
                     self.first_selection = Some(0);
                     self.last_selection = Some(0);
-                    self.app_state.cover_art_rx = Some(self.app_state.files[0].load_album_art()); // refresh cover art
+                    self.app_state.cover_art_rx = Some(self.app_state.files[0].load_album_art(Some(300))); // refresh cover art
                 }
             }
         });
+    }
+}
+
+fn large_album_art_viewer(state: &mut AppState, ctx: &egui::Context) {
+    use egui::{Align2, Color32, Id, LayerId, Order, TextStyle};
+
+    if ctx.input(|i| i.key_pressed(Key::Escape)) {
+        state.showing_lg_art = false;
+        state.lg_cover_art_rx = None;
+        state.lg_cover_art = None;
+    }
+
+    if !state.showing_lg_art {
+        return;
+    }
+
+    let painter = ctx.layer_painter(LayerId::new(
+        Order::Foreground,
+        Id::new("large_album_art_viewer"),
+    ));
+
+    let content_rect = ctx.content_rect();
+    painter.rect_filled(content_rect, 0.0, Color32::from_black_alpha(192));
+
+    if let Some(rx) = &state.lg_cover_art_rx {
+        match rx.try_recv() {
+            Ok(Ok(image)) => {
+                let texture = ctx.load_texture("lg_cover_art", image, egui::TextureOptions::LINEAR);
+
+                state.lg_cover_art = Some(texture);
+                state.lg_cover_art_rx = None;
+
+                ctx.request_repaint();
+            }
+            Ok(Err(_)) | Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                state.lg_cover_art = None;
+                state.lg_cover_art_rx = None;
+            }
+            Err(mpsc::TryRecvError::Empty) => {
+                let _ = painter.text(
+                    content_rect.center(),
+                    Align2::CENTER_CENTER,
+                    "Loading image...",
+                    TextStyle::Heading.resolve(&ctx.style()),
+                    Color32::WHITE,
+                );
+                state.lg_cover_art = None;
+            }
+        }
+    }
+
+    if let Some(texture) = &state.lg_cover_art {
+        let margin = 32.0;
+
+        let available = content_rect.shrink(margin);
+        let tex_size = texture.size_vec2();
+
+        let scale = (available.width() / tex_size.x).min(available.height() / tex_size.y);
+
+        let size = tex_size * scale;
+        let dest_rect = egui::Rect::from_center_size(content_rect.center(), size);
+
+        painter.image(
+            texture.id(),
+            dest_rect,
+            egui::Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
+            Color32::WHITE,
+        );
     }
 }
