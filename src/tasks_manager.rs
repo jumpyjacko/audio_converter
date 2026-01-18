@@ -1,7 +1,6 @@
 use std::collections::VecDeque;
 
-use crate::app;
-use crate::models::{audio_file::AudioFile, task::Task};
+use crate::models::{audio_file::AudioFile, settings::Settings, task::Task};
 
 #[derive(Debug)]
 pub struct TasksManager {
@@ -23,7 +22,7 @@ impl TasksManager {
     }
 
     /// Updates the active_tasks pool according to settings, called every frame
-    pub fn update(&mut self, settings: &app::Settings) {
+    pub fn update(&mut self, settings: &Settings) {
         self.active_tasks.retain(|task| !task.is_complete());
 
         while self.active_tasks.len() < settings.run_concurrent_task_count {

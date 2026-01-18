@@ -2,8 +2,9 @@ use std::path::PathBuf;
 use std::sync::mpsc;
 use std::thread;
 
-use crate::app::{self, NO_ALBUM, NO_ARTIST};
+use crate::app::{NO_ALBUM, NO_ARTIST};
 use crate::models::audio_file::AudioFile;
+use crate::models::settings::{OutputGrouping, Settings};
 use crate::transcode;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -25,7 +26,7 @@ impl Task {
         return Task { file, status: None };
     }
 
-    pub fn start_transcode(&mut self, settings: &app::Settings) {
+    pub fn start_transcode(&mut self, settings: &Settings) {
         let file = self.file.clone();
         let settings = settings.clone();
         let (tx, rx) = mpsc::channel();
@@ -34,8 +35,8 @@ impl Task {
         self.status = Some(rx);
 
         let out_dir: PathBuf = match settings.out_grouping {
-            app::OutputGrouping::NoGrouping => PathBuf::from(settings.out_directory),
-            app::OutputGrouping::Copy => {
+            OutputGrouping::NoGrouping => PathBuf::from(settings.out_directory),
+            OutputGrouping::Copy => {
                 let mut out = PathBuf::from(&settings.out_directory);
                 if let Some(parent) = self.file.path.parent() {
                     if let Some(direct_parent) = parent.file_name().and_then(|f| f.to_str()) {
@@ -45,7 +46,7 @@ impl Task {
 
                 out
             }
-            app::OutputGrouping::ArtistAlbum => {
+            OutputGrouping::ArtistAlbum => {
                 let mut out = PathBuf::from(settings.out_directory);
                 let directory = format!(
                     "{} - {}",
@@ -55,12 +56,12 @@ impl Task {
                 out.push(directory);
                 out
             }
-            app::OutputGrouping::Album => {
+            OutputGrouping::Album => {
                 let mut out = PathBuf::from(settings.out_directory);
                 out.push(self.file.album.as_deref().unwrap_or(NO_ALBUM));
                 out
             }
-            app::OutputGrouping::Artist => {
+            OutputGrouping::Artist => {
                 let mut out = PathBuf::from(settings.out_directory);
                 out.push(self.file.artist.as_deref().unwrap_or(NO_ARTIST));
                 out
