@@ -404,7 +404,9 @@ impl eframe::App for AudioConverterApp {
             if !self.app_state.files.is_empty() {
                 if input.consume_key(Modifiers::CTRL, Key::A) {
                     self.app_state.table_selections.clear();
-                    self.app_state.table_selections.extend(0..self.app_state.files.len());
+                    self.app_state
+                        .table_selections
+                        .extend(0..self.app_state.files.len());
                     self.app_state.first_selection = Some(0);
                     self.app_state.last_selection = Some(0);
                     self.app_state.cover_art_rx =

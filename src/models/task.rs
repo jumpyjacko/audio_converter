@@ -81,7 +81,7 @@ impl Task {
                 &settings.out_container,
                 settings.out_embed_art,
                 settings.out_enable_cover_art_resize,
-                settings.out_cover_art_resolution
+                settings.out_cover_art_resolution,
             ) {
                 Ok(_) => {
                     let _ = tx.send(TaskStatus::Completed);

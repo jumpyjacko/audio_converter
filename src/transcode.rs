@@ -4,7 +4,7 @@ use std::{io::Cursor, ptr};
 use base64::prelude::*;
 use byteorder::{BigEndian, WriteBytesExt};
 use ffmpeg_next::ffi::{
-    av_dict_set, av_init_packet, av_malloc, av_write_frame, av_frame_unref, avformat_new_stream,
+    av_dict_set, av_frame_unref, av_init_packet, av_malloc, av_write_frame, avformat_new_stream,
 };
 use ffmpeg_next::{codec, filter, format, frame, media};
 use image::ImageReader;

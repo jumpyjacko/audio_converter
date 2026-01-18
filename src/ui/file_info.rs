@@ -21,17 +21,29 @@ pub fn file_info_popup(state: &mut AppState, ctx: &egui::Context) {
         .movable(false)
         .default_open(false)
         .show(ctx, |ui| {
-            ui.heading(file.title.clone().unwrap_or(crate::app::NO_TITLE.to_string()));
+            ui.heading(
+                file.title
+                    .clone()
+                    .unwrap_or(crate::app::NO_TITLE.to_string()),
+            );
             egui::Grid::new("detailed_file_info")
                 .num_columns(2)
                 .striped(true)
                 .show(ui, |ui| {
                     ui.label("Artist:");
-                    ui.label(file.artist.clone().unwrap_or(crate::app::NO_ARTIST.to_string()));
+                    ui.label(
+                        file.artist
+                            .clone()
+                            .unwrap_or(crate::app::NO_ARTIST.to_string()),
+                    );
                     ui.end_row();
 
                     ui.label("Album:");
-                    ui.label(file.album.clone().unwrap_or(crate::app::NO_ALBUM.to_string()));
+                    ui.label(
+                        file.album
+                            .clone()
+                            .unwrap_or(crate::app::NO_ALBUM.to_string()),
+                    );
                     ui.end_row();
 
                     ui.label("File path:");

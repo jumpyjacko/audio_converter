@@ -1,6 +1,6 @@
-use crate::models::settings::{AppTheme, OutputGrouping, Settings};
-use crate::models::audio_file::{AudioCodec, AudioContainer, AudioSampleRate};
 use crate::app::AppState;
+use crate::models::audio_file::{AudioCodec, AudioContainer, AudioSampleRate};
+use crate::models::settings::{AppTheme, OutputGrouping, Settings};
 
 pub fn settings_list(settings: &mut Settings, state: &AppState, ui: &mut egui::Ui) {
     egui::Grid::new("settings")

@@ -25,9 +25,18 @@ pub fn task_queue_window(tasks_manager: &mut TasksManager, ctx: &egui::Context) 
                 ui.horizontal(|ui| {
                     ui.label(format!(
                         "{} - {} on {}",
-                        task.file.artist.clone().unwrap_or(crate::app::NO_ARTIST.to_string()),
-                        task.file.title.clone().unwrap_or(crate::app::NO_TITLE.to_string()),
-                        task.file.album.clone().unwrap_or(crate::app::NO_ALBUM.to_string())
+                        task.file
+                            .artist
+                            .clone()
+                            .unwrap_or(crate::app::NO_ARTIST.to_string()),
+                        task.file
+                            .title
+                            .clone()
+                            .unwrap_or(crate::app::NO_TITLE.to_string()),
+                        task.file
+                            .album
+                            .clone()
+                            .unwrap_or(crate::app::NO_ALBUM.to_string())
                     ));
                 });
             }
