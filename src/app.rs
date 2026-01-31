@@ -228,6 +228,7 @@ impl AudioConverterApp {
                 });
             });
 
+        // NOTE: this mess is for multi-select
         if let Some(i) = clicked_row {
             if self.app_state.first_selection.is_none() {
                 self.app_state.first_selection = Some(i);
@@ -264,7 +265,7 @@ impl AudioConverterApp {
                     self.app_state.last_selection = None;
                 }
             });
-            self.app_state.cover_art_rx = Some(self.app_state.files[i].load_album_art(Some(300))); // refresh cover art TODO: move out from here?
+            self.app_state.cover_art_rx = Some(self.app_state.files[i].load_album_art(Some(300)));
         }
     }
 }
