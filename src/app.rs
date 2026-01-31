@@ -228,6 +228,7 @@ impl AudioConverterApp {
                 });
             });
 
+        // NOTE: this mess is for multi-select
         if let Some(i) = clicked_row {
             if self.app_state.first_selection.is_none() {
                 self.app_state.first_selection = Some(i);
@@ -264,7 +265,7 @@ impl AudioConverterApp {
                     self.app_state.last_selection = None;
                 }
             });
-            self.app_state.cover_art_rx = Some(self.app_state.files[i].load_album_art(Some(300))); // refresh cover art TODO: move out from here?
+            self.app_state.cover_art_rx = Some(self.app_state.files[i].load_album_art(Some(300)));
         }
     }
 }
@@ -357,6 +358,15 @@ impl eframe::App for AudioConverterApp {
 
         if !self.app_state.table_selections.is_empty() {
             ui::file_info::file_info_popup(&mut self.app_state, ctx);
+
+            if self.app_state.showing_lg_art {
+                egui::Area::new(egui::Id::new("viewer"))
+                    .order(egui::Order::Foreground)
+                    .show(ctx, |ui| {
+                        let _ = ui.allocate_rect(ctx.content_rect(), egui::Sense::click_and_drag());
+                        ui::album_art_viewer::large_album_art_viewer(&mut self.app_state, ctx);
+                    });
+            }
         }
 
         self.preview_dropped_files(ctx);

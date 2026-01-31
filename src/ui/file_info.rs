@@ -2,7 +2,7 @@ use std::sync::mpsc;
 
 use egui::{Sense, Vec2};
 
-use crate::{app::AppState, ui::album_art_viewer::large_album_art_viewer};
+use crate::app::AppState;
 
 pub fn file_info_popup(state: &mut AppState, ctx: &egui::Context) {
     use egui::Align2;
@@ -92,6 +92,4 @@ pub fn file_info_popup(state: &mut AppState, ctx: &egui::Context) {
                 }
             }
         });
-
-    large_album_art_viewer(state, ctx);
 }
