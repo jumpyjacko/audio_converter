@@ -13,10 +13,6 @@ pub fn large_album_art_viewer(state: &mut AppState, ctx: &egui::Context) {
         state.lg_cover_art = None;
     }
 
-    if !state.showing_lg_art {
-        return;
-    }
-
     let painter = ctx.layer_painter(LayerId::new(
         Order::Foreground,
         Id::new("large_album_art_viewer"),
@@ -70,7 +66,7 @@ pub fn large_album_art_viewer(state: &mut AppState, ctx: &egui::Context) {
             Color32::WHITE,
         );
 
-        let clicked_on_art = ctx.input(|i| i.pointer.any_click())
+        let clicked_on_art = ctx.input(|i| i.pointer.any_pressed())
             && !dest_rect.contains(ctx.input(|i| i.pointer.interact_pos()).unwrap());
         if clicked_on_art {
             state.showing_lg_art = false;

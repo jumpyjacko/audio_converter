@@ -358,6 +358,15 @@ impl eframe::App for AudioConverterApp {
 
         if !self.app_state.table_selections.is_empty() {
             ui::file_info::file_info_popup(&mut self.app_state, ctx);
+
+            if self.app_state.showing_lg_art {
+                egui::Area::new(egui::Id::new("viewer"))
+                    .order(egui::Order::Foreground)
+                    .show(ctx, |ui| {
+                        let _ = ui.allocate_rect(ctx.content_rect(), egui::Sense::click_and_drag());
+                        ui::album_art_viewer::large_album_art_viewer(&mut self.app_state, ctx);
+                    });
+            }
         }
 
         self.preview_dropped_files(ctx);
