@@ -213,7 +213,6 @@ pub fn decode_thumbnail(
 //     hasher.finish()
 // }
 
-// TODO: handle strange track number strings?? i've never encountered other types than '1' and '1/12'
 fn parse_track_string(s: &str) -> Option<u32> {
     s.split('/').next().and_then(|n| n.parse::<u32>().ok())
 }
