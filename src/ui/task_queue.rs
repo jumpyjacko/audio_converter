@@ -1,6 +1,6 @@
 use crate::tasks::TasksManager;
 
-pub fn task_queue_window(tasks_manager: &mut TasksManager, ctx: &egui::Context) {
+pub fn task_queue_window(tasks_manager: &mut TasksManager, ui: &egui::Ui) {
     use egui::Align2;
 
     egui::Window::new("Task Queue")
@@ -8,7 +8,7 @@ pub fn task_queue_window(tasks_manager: &mut TasksManager, ctx: &egui::Context) 
         .movable(false)
         .resizable(false)
         .title_bar(false)
-        .show(ctx, |ui| {
+        .show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.heading("Queue");
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {

@@ -4,32 +4,32 @@ use egui::pos2;
 
 use crate::app::AppState;
 
-pub fn large_album_art_viewer(state: &mut AppState, ctx: &egui::Context) {
+pub fn large_album_art_viewer(state: &mut AppState, ui: &egui::Ui) {
     use egui::{Align2, Color32, Id, LayerId, Order, TextStyle};
 
-    if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+    if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
         state.showing_lg_art = false;
         state.lg_cover_art_rx = None;
         state.lg_cover_art = None;
     }
 
-    let painter = ctx.layer_painter(LayerId::new(
+    let painter = ui.layer_painter(LayerId::new(
         Order::Foreground,
         Id::new("large_album_art_viewer"),
     ));
 
-    let content_rect = ctx.content_rect();
+    let content_rect = ui.content_rect();
     painter.rect_filled(content_rect, 0.0, Color32::from_black_alpha(192));
 
     if let Some(rx) = &state.lg_cover_art_rx {
         match rx.try_recv() {
             Ok(Ok(image)) => {
-                let texture = ctx.load_texture("lg_cover_art", image, egui::TextureOptions::LINEAR);
+                let texture = ui.load_texture("lg_cover_art", image, egui::TextureOptions::LINEAR);
 
                 state.lg_cover_art = Some(texture);
                 state.lg_cover_art_rx = None;
 
-                ctx.request_repaint();
+                ui.request_repaint();
             }
             Ok(Err(_)) | Err(std::sync::mpsc::TryRecvError::Disconnected) => {
                 state.lg_cover_art = None;
@@ -40,7 +40,7 @@ pub fn large_album_art_viewer(state: &mut AppState, ctx: &egui::Context) {
                     content_rect.center(),
                     Align2::CENTER_CENTER,
                     "Loading image...",
-                    TextStyle::Heading.resolve(&ctx.style()),
+                    TextStyle::Heading.resolve(&ui.style()),
                     Color32::WHITE,
                 );
                 state.lg_cover_art = None;
@@ -66,8 +66,8 @@ pub fn large_album_art_viewer(state: &mut AppState, ctx: &egui::Context) {
             Color32::WHITE,
         );
 
-        let clicked_on_art = ctx.input(|i| i.pointer.any_pressed())
-            && !dest_rect.contains(ctx.input(|i| i.pointer.interact_pos()).unwrap());
+        let clicked_on_art = ui.input(|i| i.pointer.any_pressed())
+            && !dest_rect.contains(ui.input(|i| i.pointer.interact_pos()).unwrap());
         if clicked_on_art {
             state.showing_lg_art = false;
             state.lg_cover_art_rx = None;

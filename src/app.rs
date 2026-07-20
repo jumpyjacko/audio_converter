@@ -170,7 +170,7 @@ impl AudioConverterApp {
                 content_rect.center(),
                 Align2::CENTER_CENTER,
                 text,
-                TextStyle::Heading.resolve(&ctx.style()),
+                TextStyle::Heading.resolve(&ctx.global_style()),
                 Color32::WHITE,
             );
         }
@@ -296,21 +296,21 @@ impl eframe::App for AudioConverterApp {
         eframe::set_value(storage, eframe::APP_KEY, self);
     }
 
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.tasks_manager.update(&self.settings);
         self.app_state.is_transcoding = !self.tasks_manager.active_tasks.is_empty();
 
         match self.settings.app_theme {
-            AppTheme::System => ctx.set_visuals(egui::Visuals::default()),
-            AppTheme::Dark => ctx.set_visuals(egui::Visuals::dark()),
-            AppTheme::Light => ctx.set_visuals(egui::Visuals::light()),
+            AppTheme::System => ui.set_visuals(egui::Visuals::default()),
+            AppTheme::Dark => ui.set_visuals(egui::Visuals::dark()),
+            AppTheme::Light => ui.set_visuals(egui::Visuals::light()),
         }
 
-        egui::TopBottomPanel::top("header").show(ctx, |ui| {
+        egui::Panel::top("header").show(ui, |ui| {
             ui.heading("Audio File Converter");
         });
 
-        egui::SidePanel::right("output_settings").show(ctx, |ui| {
+        egui::Panel::right("output_settings").show(ui, |ui| {
             ui.heading("Settings");
             ui.separator();
             egui::ScrollArea::vertical().show(ui, |ui| {
@@ -327,7 +327,7 @@ impl eframe::App for AudioConverterApp {
             });
         });
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.heading("Files");
 
@@ -378,20 +378,20 @@ impl eframe::App for AudioConverterApp {
         });
 
         if !self.app_state.table_selections.is_empty() {
-            ui::file_info::file_info_popup(&mut self.app_state, ctx);
+            ui::file_info::file_info_popup(&mut self.app_state, ui);
 
             if self.app_state.showing_lg_art {
                 egui::Area::new(egui::Id::new("viewer"))
                     .order(egui::Order::Foreground)
-                    .show(ctx, |ui| {
-                        let _ = ui.allocate_rect(ctx.content_rect(), egui::Sense::click_and_drag());
-                        ui::album_art_viewer::large_album_art_viewer(&mut self.app_state, ctx);
+                    .show(ui, |ui| {
+                        let _ = ui.allocate_rect(ui.content_rect(), egui::Sense::click_and_drag());
+                        ui::album_art_viewer::large_album_art_viewer(&mut self.app_state, ui);
                     });
             }
         }
 
-        self.preview_dropped_files(ctx);
-        ctx.input(|i| {
+        self.preview_dropped_files(ui);
+        ui.input(|i| {
             if i.raw.dropped_files.is_empty() {
                 return;
             }
@@ -409,10 +409,10 @@ impl eframe::App for AudioConverterApp {
         });
 
         if self.app_state.is_transcoding {
-            ui::task_queue::task_queue_window(&mut self.tasks_manager, ctx);
+            ui::task_queue::task_queue_window(&mut self.tasks_manager, ui);
         }
 
-        ctx.input_mut(|input| {
+        ui.input_mut(|input| {
             if input.key_pressed(Key::Delete) {
                 if !self.app_state.table_selections.is_empty() {
                     self.app_state.files = self

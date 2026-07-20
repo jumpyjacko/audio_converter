@@ -4,7 +4,7 @@ use egui::{Sense, Vec2};
 
 use crate::app::AppState;
 
-pub fn file_info_popup(state: &mut AppState, ctx: &egui::Context) {
+pub fn file_info_popup(state: &mut AppState, ui: &egui::Ui) {
     use egui::Align2;
 
     let file = state
@@ -20,7 +20,7 @@ pub fn file_info_popup(state: &mut AppState, ctx: &egui::Context) {
         .resizable(false)
         .movable(false)
         .default_open(false)
-        .show(ctx, |ui| {
+        .show(ui, |ui| {
             ui.heading(
                 file.title
                     .clone()
@@ -59,12 +59,12 @@ pub fn file_info_popup(state: &mut AppState, ctx: &egui::Context) {
                 match rx.try_recv() {
                     Ok(Ok(image)) => {
                         let texture =
-                            ctx.load_texture("cover_art", image, egui::TextureOptions::LINEAR);
+                            ui.load_texture("cover_art", image, egui::TextureOptions::LINEAR);
 
                         state.cover_art = Some(texture);
                         state.cover_art_rx = None;
 
-                        ctx.request_repaint();
+                        ui.request_repaint();
                     }
                     Ok(Err(_)) | Err(std::sync::mpsc::TryRecvError::Disconnected) => {
                         state.cover_art = None;
