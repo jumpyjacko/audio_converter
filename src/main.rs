@@ -1,13 +1,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
 mod app;
-mod models;
-mod tasks_manager;
+mod audio_file;
+mod tasks;
 mod transcode;
 mod ui;
 
-use app::AudioConverterApp;
-
+use crate::app::AudioConverterApp;
 use eframe::egui;
 
 fn main() -> eframe::Result {
@@ -22,7 +21,7 @@ fn main() -> eframe::Result {
     ffmpeg_next::init().expect("Failed to initialise FFmpeg");
 
     eframe::run_native(
-        "Batch Audio File Converter",
+        "Audio File Converter",
         options,
         Box::new(|cc| {
             egui_extras::install_image_loaders(&cc.egui_ctx);

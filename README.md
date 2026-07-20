@@ -1,4 +1,4 @@
-# Batch Audio File Converter
+# Audio File Converter
 A small program built on top of [FFmpeg](https://ffmpeg.org/), to mass transcode audio files from one format to another, while preserving metadata and cover art.
 
 ## Features

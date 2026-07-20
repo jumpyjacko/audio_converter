@@ -1,4 +1,4 @@
-use crate::tasks_manager::TasksManager;
+use crate::tasks::TasksManager;
 
 pub fn task_queue_window(tasks_manager: &mut TasksManager, ctx: &egui::Context) {
     use egui::Align2;

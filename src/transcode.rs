@@ -9,9 +9,9 @@ use ffmpeg_next::ffi::{
 use ffmpeg_next::{codec, filter, format, frame, media};
 use image::ImageReader;
 
-use crate::models::audio_file::{self, AudioCodec, AudioContainer, AudioFile, AudioSampleRate};
+use crate::audio_file::{AudioCodec, AudioContainer, AudioFile, AudioSampleRate};
 
-// Transcoding code almost word-for-word copied from ffmpeg-next/examples/transcode-audio.rs
+// Transcoding code references code from ffmpeg-next/examples/transcode-audio.rs
 struct Transcoder {
     stream: usize,
     filter: filter::Graph,
@@ -81,11 +81,11 @@ fn transcoder(
     let context = codec::context::Context::from_parameters(input.parameters())?;
     let mut decoder = context.decoder().audio()?;
     let codec = codec::encoder::find(match out_codec {
-        audio_file::AudioCodec::FLAC => codec::Id::FLAC,
-        audio_file::AudioCodec::MP3 => codec::Id::MP3,
-        audio_file::AudioCodec::AAC => codec::Id::AAC,
-        audio_file::AudioCodec::OPUS => codec::Id::OPUS,
-        audio_file::AudioCodec::VORBIS => codec::Id::VORBIS,
+        AudioCodec::FLAC => codec::Id::FLAC,
+        AudioCodec::MP3 => codec::Id::MP3,
+        AudioCodec::AAC => codec::Id::AAC,
+        AudioCodec::OPUS => codec::Id::OPUS,
+        AudioCodec::VORBIS => codec::Id::VORBIS,
     })
     .ok_or(ffmpeg_next::Error::EncoderNotFound)?
     .audio()?;

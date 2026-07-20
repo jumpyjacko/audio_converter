@@ -4,11 +4,8 @@ use egui::{
 };
 use std::{collections::HashSet, sync::mpsc};
 
-use crate::models::audio_file::{
-    AlbumArtError, AudioCodec, AudioContainer, AudioFile, AudioSampleRate,
-};
-use crate::models::settings::{AppTheme, OutputGrouping, Settings};
-use crate::tasks_manager::TasksManager;
+use crate::audio_file::{AlbumArtError, AudioCodec, AudioContainer, AudioFile, AudioSampleRate};
+use crate::tasks::{OutputGrouping, TasksManager};
 use crate::ui;
 
 pub const NO_ARTIST: &str = "<no artist>";
@@ -29,6 +26,30 @@ pub struct AppState {
     pub table_selections: HashSet<usize>,
     pub first_selection: Option<usize>,
     pub last_selection: Option<usize>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, PartialEq, Clone)]
+pub enum AppTheme {
+    System,
+    Dark,
+    Light,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Clone)]
+pub struct Settings {
+    pub app_theme: AppTheme,
+
+    pub run_concurrent_task_count: usize,
+
+    pub out_codec: AudioCodec,
+    pub out_container: AudioContainer,
+    pub out_sample_rate: AudioSampleRate,
+    pub out_bitrate: usize,
+    pub out_directory: String,
+    pub out_grouping: OutputGrouping,
+    pub out_embed_art: bool,
+    pub out_enable_cover_art_resize: bool,
+    pub out_cover_art_resolution: u32,
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -65,9 +86,9 @@ impl Default for AudioConverterApp {
                 out_codec: AudioCodec::OPUS,
                 out_container: AudioContainer::OGG,
                 out_sample_rate: AudioSampleRate::Studio48,
-                out_bitrate: 64000,
-                out_directory: "./".to_string(),
-                out_grouping: OutputGrouping::ArtistAlbum,
+                out_bitrate: 128000,
+                out_directory: "".to_string(),
+                out_grouping: OutputGrouping::Copy,
                 out_embed_art: true,
                 out_enable_cover_art_resize: false,
                 out_cover_art_resolution: 1000,
@@ -286,7 +307,7 @@ impl eframe::App for AudioConverterApp {
         }
 
         egui::TopBottomPanel::top("header").show(ctx, |ui| {
-            ui.heading("Batch Audio File Converter");
+            ui.heading("Audio File Converter");
         });
 
         egui::SidePanel::right("output_settings").show(ctx, |ui| {
@@ -314,7 +335,7 @@ impl eframe::App for AudioConverterApp {
 
                 if ui.button("Open files").clicked()
                     && let Some(paths) = rfd::FileDialog::new()
-                        .add_filter("audio", &crate::models::audio_file::ALLOWED_INPUT_TYPES)
+                        .add_filter("audio", &crate::audio_file::ALLOWED_INPUT_TYPES)
                         .pick_files()
                 {
                     for file in paths {
