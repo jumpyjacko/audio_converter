@@ -67,7 +67,14 @@ impl Default for AudioFile {
 }
 
 impl AudioFile {
-    pub fn new(path: PathBuf) -> Result<Self, AudioFileError> {
+    pub fn new(raw_path: PathBuf) -> Result<Self, AudioFileError> {
+        let raw_str = raw_path.to_string_lossy();
+        let decoded_str = urlencoding::decode(&raw_str)
+            .map(|cow| cow.into_owned())
+            .map_err(|_| AudioFileError::InputError)?;
+
+        let path = PathBuf::from(decoded_str);
+
         let Some(path_ext) = &path.extension() else {
             return Err(AudioFileError::NoExtension);
         };
@@ -89,7 +96,14 @@ impl AudioFile {
         });
     }
 
-    pub fn from_directory(path: &PathBuf) -> Result<Vec<Self>, AudioFileError> {
+    pub fn from_directory(raw_path: &PathBuf) -> Result<Vec<Self>, AudioFileError> {
+        let raw_str = raw_path.to_string_lossy();
+        let decoded_str = urlencoding::decode(&raw_str)
+            .map(|cow| cow.into_owned())
+            .map_err(|_| AudioFileError::InputError)?;
+
+        let path = PathBuf::from(decoded_str);
+
         if !path.is_dir() {
             return Err(AudioFileError::NotADirectory);
         }

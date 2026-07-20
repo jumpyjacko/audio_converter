@@ -13,7 +13,8 @@ ron = { version = "0.12" }
 
 env_logger = { version = "0.11.8", features = ["auto-color", "humantime"] }
 serde = { version = "1", features = ["derive"] }
-rfd = "=0.17.0"
+urlencoding = "2"
+rfd = "0.17"
 
 ffmpeg-next = "8.1.0"
 image = "0.25"

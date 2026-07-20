@@ -333,7 +333,7 @@ impl eframe::App for AudioConverterApp {
 
                 ui.add_space(10.0);
 
-                if ui.button("Open files").clicked()
+                if ui.button("Open files...").clicked()
                     && let Some(paths) = rfd::FileDialog::new()
                         .add_filter("audio", &crate::audio_file::ALLOWED_INPUT_TYPES)
                         .pick_files()
@@ -344,7 +344,7 @@ impl eframe::App for AudioConverterApp {
                     }
                 }
 
-                if ui.button("Open folders").clicked()
+                if ui.button("Open folders...").clicked()
                     && let Some(paths) = rfd::FileDialog::new()
                         .pick_folders()
                 {
