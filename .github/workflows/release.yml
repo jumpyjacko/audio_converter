@@ -5,6 +5,12 @@ on:
     tags:
       - "v*.*.*"
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "DRY RUN: Build without creating a release"
+        type: boolean
+        required: true
+        default: false
 
 jobs:
   build-linux:
@@ -113,6 +119,7 @@ jobs:
               -C "$(pwd)" "LICENSE.txt" "LICENSE.LGPL.txt"
 
       - name: Create GitHub Release
+        if: ${{ inputs.dry_run == false }}
         uses: ncipollo/release-action@v1
         with:
           allowUpdates: true
@@ -163,6 +170,7 @@ jobs:
               -C "$(pwd)" "LICENSE.txt" "LICENSE.LGPL.txt"
 
       - name: Create GitHub Release
+        if: ${{ inputs.dry_run == false }}
         uses: ncipollo/release-action@v1
         with:
           allowUpdates: true
@@ -233,6 +241,7 @@ jobs:
           Compress-Archive -Path $files -DestinationPath $zipFile -Force
 
       - name: Create GitHub Release
+        if: ${{ inputs.dry_run == false }}
         uses: ncipollo/release-action@v1
         with:
           allowUpdates: true
