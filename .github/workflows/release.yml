@@ -85,8 +85,7 @@ jobs:
             libavformat-dev \
             libavutil-dev \
             libswresample-dev \
-            libswscale-dev
-          apt-get install -y \
+            libswscale-dev \
             pkg-config \
             build-essential \
             clang \
