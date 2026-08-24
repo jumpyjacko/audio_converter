@@ -16,7 +16,7 @@ serde = { version = "1", features = ["derive"] }
 urlencoding = "2"
 rfd = "0.17"
 
-ffmpeg-next = "8.1.0"
+ffmpeg-next = "9"
 image = "0.25"
 base64 = "0.22"
 byteorder = "1.5"
