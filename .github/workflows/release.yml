@@ -13,10 +13,10 @@ jobs:
       contents: write
     strategy:
       matrix:
-        ffmpeg: [6, 8]
+        ffmpeg: ['6', '8', '9']
         target: [x86_64-unknown-linux-gnu]
     container:
-      image: ${{ matrix.ffmpeg == '8' && 'debian:unstable' || '' }}
+      image: ${{ (matrix.ffmpeg == '8' || matrix.ffmpeg == '9') && 'debian:unstable' || null }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -24,9 +24,9 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Install prerequisites
+      - name: Install prerequisites (FFmpeg 6 on Ubuntu)
+        if: matrix.ffmpeg == '6'
         run: |
-          if [ "${{ matrix.ffmpeg }}" == "6" ]; then
           sudo apt update
           sudo apt install -y \
             ffmpeg \
@@ -37,14 +37,61 @@ jobs:
             libavdevice-dev \
             libswresample-dev \
             libswscale-dev \
-            pkg-config
-          elif [ "${{ matrix.ffmpeg }}" = "8" ]; then
-            apt-get update
-            apt-get install -y \
-              ffmpeg libavcodec-dev libavdevice-dev libavfilter-dev \
-              libavformat-dev libavutil-dev libswresample-dev libswscale-dev \
-              pkg-config build-essential clang rustc cargo git
-          fi
+            pkg-config \
+            build-essential \
+            clang \
+            rustc \
+            cargo \
+            git
+
+      - name: Install prerequisites (FFmpeg 8 on Debian Unstable)
+        if: matrix.ffmpeg == '8'
+        run: |
+          apt update
+          apt install -y \
+            ffmpeg \
+            libavcodec-dev \
+            libavformat-dev \
+            libavutil-dev \
+            libavfilter-dev \
+            libavdevice-dev \
+            libswresample-dev \
+            libswscale-dev \
+            pkg-config \
+            build-essential \
+            clang \
+            rustc \
+            cargo \
+            git
+
+      - name: Install prerequisites (FFmpeg 9 on Debian Experimental)
+        if: matrix.ffmpeg == '9'
+        run: |
+          apt-get update
+          apt-get install -y apt-transport-https ca-certificates
+          echo "deb http://deb.debian.org/debian experimental main" > /etc/apt/sources.list.d/experimental.list
+          apt-get update
+          apt-get install -y -t experimental \
+            ffmpeg \
+            libavcodec-dev \
+            libavdevice-dev \
+            libavfilter-dev \
+            libavformat-dev \
+            libavutil-dev \
+            libswresample-dev \
+            libswscale-dev
+          apt-get install -y \
+            pkg-config \
+            build-essential \
+            clang \
+            rustc \
+            cargo \
+            git
+
+      - name: Verify Environment
+        run: |
+          ffmpeg -version
+          pkg-config --modversion libavcodec
 
       - name: Read release tag
         run: |
@@ -153,13 +200,13 @@ jobs:
       - name: Download prebuilt FFmpeg libraries
         shell: pwsh
         run: |
-          curl -L -o ffmpeg.zip https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-win64-lgpl-shared-8.1.zip
+          curl -L -o ffmpeg.zip https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n9.0-latest-win64-lgpl-shared-9.0.zip
           Expand-Archive -Path ffmpeg.zip -DestinationPath temp_extract
 
           New-Item -ItemType Directory -Path ${{ github.workspace }}\ffmpeg -Force
 
-          Move-Item -Path temp_extract\ffmpeg-n8.1-latest-win64-lgpl-shared-8.1\* -Destination ${{ github.workspace }}\ffmpeg
-          Move-Item -Path temp_extract\ffmpeg-n8.1-latest-win64-lgpl-shared-8.1\.* -Destination ${{ github.workspace }}\ffmpeg -ErrorAction SilentlyContinue
+          Move-Item -Path temp_extract\ffmpeg-n9.0-latest-win64-lgpl-shared-9.0\* -Destination ${{ github.workspace }}\ffmpeg
+          Move-Item -Path temp_extract\ffmpeg-n9.0-latest-win64-lgpl-shared-9.0\.* -Destination ${{ github.workspace }}\ffmpeg -ErrorAction SilentlyContinue
 
           Remove-Item -Recurse -Force temp_extract
 
