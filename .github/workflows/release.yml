@@ -99,6 +99,7 @@ jobs:
           pkg-config --modversion libavcodec
 
       - name: Read release tag
+        shell: bash
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${{ inputs.dry_run }}" == "true" ]; then
             TAG="DEV"
