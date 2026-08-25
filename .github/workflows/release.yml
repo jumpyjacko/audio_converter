@@ -30,20 +30,6 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Read release tag
-        run: |
-          if [ "${{ inputs.dry_run }}" == "true" ]; then
-            TAG="DEV"
-          elif [ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ] && [ -n "${{ github.event.inputs.tag }}" ]; then
-            TAG="${{ github.event.inputs.tag }}"
-          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            TAG="${GITHUB_REF#refs/tags/}"
-          else
-            TAG="DEV"
-          fi
-
-          echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
-
       - name: Install prerequisites (FFmpeg 6 on Ubuntu)
         if: matrix.ffmpeg == '6'
         run: |
@@ -112,6 +98,18 @@ jobs:
           ffmpeg -version
           pkg-config --modversion libavcodec
 
+      - name: Read release tag
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${{ inputs.dry_run }}" == "true" ]; then
+            TAG="DEV"
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          else
+            TAG="DEV"
+          fi
+
+          echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
+
       - name: Build release
         run: |
           cargo build --release --target ${{ matrix.target }}
@@ -148,11 +146,9 @@ jobs:
 
       - name: Read release tag
         run: |
-          if [ "${{ inputs.dry_run }}" == "true" ]; then
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${{ inputs.dry_run }}" == "true" ]; then
             TAG="DEV"
-          elif [ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ] && [ -n "${{ github.event.inputs.tag }}" ]; then
-            TAG="${{ github.event.inputs.tag }}"
-          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
             TAG="${GITHUB_REF#refs/tags/}"
           else
             TAG="DEV"
@@ -204,13 +200,10 @@ jobs:
           fetch-tags: true
 
       - name: Read release tag
-        shell: bash
         run: |
-          if [ "${{ inputs.dry_run }}" == "true" ]; then
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${{ inputs.dry_run }}" == "true" ]; then
             TAG="DEV"
-          elif [ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ] && [ -n "${{ github.event.inputs.tag }}" ]; then
-            TAG="${{ github.event.inputs.tag }}"
-          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
             TAG="${GITHUB_REF#refs/tags/}"
           else
             TAG="DEV"
